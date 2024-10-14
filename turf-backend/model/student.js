@@ -17,7 +17,7 @@ const StudentSchema = mongoose.Schema(
             trim: true
         },
         purpose: {
-            type: [String],
+            type: String,
             enum: purposeEnum,
             trim: true,
             required: [true, "Enter your purpose of booking"]
