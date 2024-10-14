@@ -20,15 +20,15 @@ const StudentSchema = mongoose.Schema(
             type: [String],
             enum: purposeEnum,
             trim: true,
-            required: [true,"Enter your Roll Number"]
+            required: [true,"Enter your purpose of booking"]
         },
-        no_of_players:{
-            type: Number,
-            required: [true,"Enter your Roll Number"],
-            trim: true
-        },
+        // no_of_players:{
+        //     type: Number,
+        //     required: [true,"Enter Roll Number"],
+        //     trim: true
+        // },
         player_roll_no:{
-            type:String,
+            type:[String],
             required:true,
             trim:true,
         },
@@ -38,7 +38,7 @@ const StudentSchema = mongoose.Schema(
         //     default: 'pending' 
         // },
         slot: {
-            type: Number,
+            type: String,
             required: true,
         }
     }
