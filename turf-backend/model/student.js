@@ -31,11 +31,11 @@ const StudentSchema = mongoose.Schema(
             type: String,  // Ensure this is a string to match the frontend
             required: true,
         },
-        no_of_players: {  // Optional if not required from the frontend
-            type: Number,
-            required: false, // Make it optional if not sent from frontend
-            trim: true
-        },
+        // no_of_players: {  // Optional if not required from the frontend
+        //     type: Number,
+        //     required: false, // Make it optional if not sent from frontend
+        //     trim: true
+        // },
     }
 );
 
