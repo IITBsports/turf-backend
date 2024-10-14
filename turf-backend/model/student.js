@@ -23,7 +23,7 @@ const StudentSchema = mongoose.Schema(
             required: [true, "Enter your purpose of booking"]
         },
         player_roll_no: {
-            type: [String],
+            type: String,
             required: [true, 'Player roll numbers are required'],
             trim: true,
         },
