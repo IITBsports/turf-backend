@@ -28,7 +28,7 @@ const StudentSchema = mongoose.Schema(
             trim: true,
         },
         slot: {
-            type: String,  // Ensure this is a string to match the frontend
+            type: Number,  // Ensure this is a string to match the frontend
             required: true,
         },
         // no_of_players: {  // Optional if not required from the frontend
