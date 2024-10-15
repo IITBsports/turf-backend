@@ -81,6 +81,14 @@ app.delete('/:id', async (req, res) => {
 })
 
 
+app.get('/slots', async (req, res) => {
+    try {
+        const slots = await mainInfo.find({});  // Assuming you store slots here
+        res.status(200).json(slots);
+    } catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+});
 
 
 app.put('/student/:id/status', async (req, res) => {
