@@ -83,7 +83,7 @@ app.delete('/:id', async (req, res) => {
 
 app.get('/slots', async (req, res) => {
     try {
-        const slots = await mainInfo.find({}, { slotno: 1, status: 2});  
+        const slots = await mainInfo.find();  
         
         if (slots.length === 0) {
             return res.status(404).json({ message: "No slots found" });
