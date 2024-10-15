@@ -14,7 +14,7 @@ const MainSchema =new mongoose.Schema(
             default: 'pending' 
         },
         slotno: {
-            type: Number,
+            type: String,
             required: true,
         },
         createdAt: {

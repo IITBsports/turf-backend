@@ -1,67 +1,43 @@
 const mongoose = require("mongoose");
+
 const purposeEnum = [
     'match among friends', 'council match', 'frisbee club'
 ];
-// const statusEnum = ['pending', 'accepted', 'declined'];
 
 const StudentSchema = mongoose.Schema(
     {
-        name:{
+        name: {
             type: String,
-            required: [true,'Please enter your name'],
+            required: [true, 'Please enter your name'],
             trim: true
         },
-        rollno:{
+        rollno: {
             type: String,
-            required: [true,"Enter your Roll Number"],
+            required: [true, "Enter your Roll Number"],
             trim: true
         },
-        purpose:{
-            type: [String],
+        purpose: {
+            type: String,
             enum: purposeEnum,
             trim: true,
-            required: [true,"Enter your Roll Number"]
+            required: [true, "Enter your purpose of booking"]
         },
-        no_of_players:{
-            type: Number,
-            required: [true,"Enter your Roll Number"],
-            trim: true
+        player_roll_no: {
+            type: String,
+            required: [true, 'Player roll numbers are required'],
+            trim: true,
         },
-        player_roll_no:{
-            type:String,
-            required:true,
-            trim:true,
-        },
-        // status: {
-        //     type: String,
-        //     enum: statusEnum,
-        //     default: 'pending' 
-        // },
         slot: {
-            type: Number,
+            type: Number,  // Ensure this is a string to match the frontend
             required: true,
-        }
+        },
+        // no_of_players: {  // Optional if not required from the frontend
+        //     type: Number,
+        //     required: false, // Make it optional if not sent from frontend
+        //     trim: true
+        // },
     }
 );
 
-// StudentSchema.post('save', async function (doc, next) {
-//     try {
-//         const MainInfo = require('./main.js');  // Require the MainInfo model
-
-//         // Create a new document in MainInfo using the saved student document's data
-//         const mainInfoDoc = new MainInfo({
-//             rollno: doc.rollno,
-//             slotno: doc.slot
-//         });
-
-//         // Save the MainInfo document
-//         await mainInfoDoc.save();
-
-//         next();
-//     } catch (err) {
-//         next(err);
-//     }
-// });
-
-const student = mongoose.model("Student",StudentSchema)
-module.exports = student
+const student = mongoose.model("Student", StudentSchema);
+module.exports = student;

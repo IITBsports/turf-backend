@@ -21,7 +21,7 @@ app.get('/', async (req, res) => {
     try {
         const bl = await student.find({});
         //res.status(200).json( bl );
-        res.status(200).json({ "student": bl });
+        res.status(200).json(bl);
     } catch (e) {
         res.status(500).json({ message: e.message })
     }
@@ -91,6 +91,19 @@ app.delete('/:id', async (req, res) => {
 })
 
 
+app.get('/slots', async (req, res) => {
+    try {
+        const slots = await mainInfo.find();  
+        
+        if (slots.length === 0) {
+            return res.status(404).json({ message: "No slots found" });
+        }
+        
+        res.status(200).json(slots);
+    } catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+});
 
 app.put('/student/:id/status', async (req, res) => {
     //status of entry in mainInfo not of student
