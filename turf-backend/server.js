@@ -21,7 +21,7 @@ app.get('/', async (req, res) => {
     try {
         const bl = await student.find({});
         //res.status(200).json( bl );
-        res.status(200).json({ "student": bl });
+        res.status(200).json(bl);
     } catch (e) {
         res.status(500).json({ message: e.message })
     }
