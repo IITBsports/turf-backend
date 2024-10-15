@@ -27,6 +27,16 @@ app.get('/', async (req, res) => {
     }
 })
 
+app.get('/slot', async (req, res) => {
+    try {
+        const bl = await mainInfo.find({});
+        //res.status(200).json( bl );
+        res.status(200).json(bl);
+    } catch (e) {
+        res.status(500).json({ message: e.message })
+    }
+})
+
 app.post('/', async (req, res) => {
     const { rollno, slot } = req.body;
     try {
@@ -79,7 +89,6 @@ app.delete('/:id', async (req, res) => {
         res.status(500).json({ message: e.message })
     }
 })
-
 
 
 
