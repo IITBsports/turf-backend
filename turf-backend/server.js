@@ -38,32 +38,51 @@ app.get('/slot', async (req, res) => {
 })
 
 app.post('/', async (req, res) => {
-    const { rollno, slot, status } = req.body;  
-    console.log(req.body); // Log the full request body
+  try {
+    const {
+      name,
+      rollno,
+      purpose,
+      player_roll_no,
+      no_of_players,
+      status,
+      slot,
+    } = req.body;
 
-    try {
-        const isBanned = await bannedDb.findOne({ rollno });
-        if (isBanned) {
-            return res.status(403).json({ message: 'Booking denied: You are currently restricted from this service' });
-        }
-
-        const newStudent = await student.create(req.body);
-
-        const MainInfo = await mainInfo.create({
-            rollno: newStudent.rollno,
-            slotno: newStudent.slot,
-            status: status || 'pending'  // Set status or default to 'pending'
-        });
-
-        res.status(200).json({
-            student: newStudent,
-            mainInfo: MainInfo,
-        });
-
-    } catch (e) {
-        res.status(500).json({ message: e.message });
+    // Check if user is banned
+    const isBanned = await bannedDb.findOne({ rollno });
+    if (isBanned) {
+      return res.status(403).json({ message: 'Booking denied: You are currently restricted from this service' });
     }
+
+    // Create new student record
+    const newStudent = await student.create({
+      name,
+      rollno,
+      purpose,
+      player_roll_no,
+      slot,
+      no_of_players,
+      status: status || 'pending',
+    });
+
+    // Create new mainInfo record
+    const MainInfo = await mainInfo.create({
+      rollno: newStudent.rollno,
+      slotno: newStudent.slot,
+      status: newStudent.status,
+    });
+
+    res.status(200).json({
+      student: newStudent,
+      mainInfo: MainInfo,
+    });
+
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
 });
+
 
 
 
