@@ -38,7 +38,9 @@ app.get('/slot', async (req, res) => {
 })
 
 app.post('/', async (req, res) => {
-    const { rollno, slot, status } = req.body;  // Accept status from the request body
+    const { rollno, slot, status } = req.body;  
+    console.log(req.body); // Log the full request body
+
     try {
         const isBanned = await bannedDb.findOne({ rollno });
         if (isBanned) {
@@ -61,19 +63,8 @@ app.post('/', async (req, res) => {
     } catch (e) {
         res.status(500).json({ message: e.message });
     }
+});
 
-    // const { rollno } = req.body;
-    // try {
-    //     const isBanned = await bannedDb.findOne({ rollno });
-    //     if (isBanned) {
-    //         return res.status(403).json({ message: 'Booking denied: You are currently restricted from this service' });
-    //     }
-    //     const user = await student.create(req.body);
-    //     res.status(200).json({ "student": user });
-    // } catch (e){
-    //     res.status(500).json({message : e.message})
-    // }
-})
 
 
 
