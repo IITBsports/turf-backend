@@ -1,110 +1,103 @@
-const express = require('express')
+const express = require('express');
 const app = express();
-const mongoose = require('mongoose')
-const student = require('./model/student.js')
-const bannedDb = require('./model/banned.js')
-const mainInfo = require('./model/main.js')
-const cors = require('cors')
+const mongoose = require('mongoose');
+const student = require('./model/student.js');
+const bannedDb = require('./model/banned.js');
+const mainInfo = require('./model/main.js');
+const cors = require('cors');
 
 mongoose.connect("mongodb+srv://mndalwee:upiyQLuNAH6gmhK3@usersignup.ze0r2.mongodb.net/?retryWrites=true&w=majority&appName=userSignUp")
     .then(() => {
-        console.log("connected to databse")
-        app.listen(3010, () => console.log("server has started on 3010"))
+        console.log("connected to database");
+        app.listen(3010, () => console.log("server has started on 3010"));
     })
     .catch((err) => {
-        console.log("connection to database failed", err)
-    })
+        console.log("connection to database failed", err);
+    });
 
 app.use(cors());
 app.use(express.json());
+
+// Get all students
 app.get('/students', async (req, res) => {
-  try {
-    const students = await student.find();
-    res.json(students);
-  } catch (error) {
-    console.error('Error fetching students:', error);
-    res.status(500).send('Server error');
-  }
+    try {
+        const students = await student.find();
+        res.json(students);
+    } catch (error) {
+        console.error('Error fetching students:', error);
+        res.status(500).send('Server error');
+    }
 });
 
-// Route to get all main info
+// Get all main info
 app.get('/maininfos', async (req, res) => {
-  try {
-    const mainInfos = await mainInfo.find();
-    res.json(mainInfos);
-  } catch (error) {
-    console.error('Error fetching main info:', error);
-    res.status(500).send('Server error');
-  }
+    try {
+        const mainInfos = await mainInfo.find();
+        res.json(mainInfos);
+    } catch (error) {
+        console.error('Error fetching main info:', error);
+        res.status(500).send('Server error');
+    }
 });
 
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
-
-
+// Slot management
 app.get('/slot', async (req, res) => {
     try {
         const bl = await mainInfo.find({});
-        //res.status(200).json( bl );
         res.status(200).json(bl);
     } catch (e) {
-        res.status(500).json({ message: e.message })
+        res.status(500).json({ message: e.message });
     }
-})
-
-app.post('/', async (req, res) => {
-  try {
-    const {
-      name,
-      rollno,
-      purpose,
-      player_roll_no,
-      no_of_players,
-      status,
-      slot,
-    } = req.body;
-
-    // Check if user is banned
-    const isBanned = await bannedDb.findOne({ rollno });
-    if (isBanned) {
-      return res.status(403).json({ message: 'Booking denied: You are currently restricted from this service' });
-    }
-
-    // Create new student record
-    const newStudent = await student.create({
-      name,
-      rollno,
-      purpose,
-      player_roll_no,
-      slot,
-      no_of_players,
-      status,
-    });
-
-    // Create new mainInfo record
-    const MainInfo = await mainInfo.create({
-      rollno: newStudent.rollno,
-      slotno: newStudent.slot,
-      status: newStudent.status,
-    });
-
-    res.status(200).json({
-      student: newStudent,
-      mainInfo: MainInfo,
-    });
-
-  } catch (e) {
-    res.status(500).json({ message: e.message });
-  }
 });
 
+// Create new student record
+app.post('/', async (req, res) => {
+    try {
+        const {
+            name,
+            rollno,
+            purpose,
+            player_roll_no,
+            no_of_players,
+            status,
+            slot,
+        } = req.body;
 
+        // Check if user is banned
+        const isBanned = await bannedDb.findOne({ rollno });
+        if (isBanned) {
+            return res.status(403).json({ message: 'Booking denied: You are currently restricted from this service' });
+        }
 
+        // Create new student record
+        const newStudent = await student.create({
+            name,
+            rollno,
+            purpose,
+            player_roll_no,
+            slot,
+            no_of_players,
+            status,
+        });
 
+        // Create new mainInfo record
+        const MainInfo = await mainInfo.create({
+            rollno: newStudent.rollno,
+            slotno: newStudent.slot,
+            status: newStudent.status,
+        });
 
+        res.status(200).json({
+            student: newStudent,
+            mainInfo: MainInfo,
+        });
+
+    } catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
+// Delete student request by ID
 app.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -116,31 +109,16 @@ app.delete('/:id', async (req, res) => {
 
         res.status(200).json({ message: "User deleted successfully" });
     } catch (e) {
-        res.status(500).json({ message: e.message })
-    }
-})
-
-
-app.get('/slots', async (req, res) => {
-    try {
-        const slots = await mainInfo.find();  
-        
-        if (slots.length === 0) {
-            return res.status(404).json({ message: "No slots found" });
-        }
-        
-        res.status(200).json(slots);
-    } catch (e) {
         res.status(500).json({ message: e.message });
     }
 });
 
+// Update status of a student based on request
 app.put('/student/:id/status', async (req, res) => {
-    //status of entry in mainInfo not of student
-    try {
-        const { id } = req.params;
-        const { status } = req.body; //new status from the request body
+    const { id } = req.params;
+    const { status } = req.body; // Expect 'accepted' or 'declined'
 
+    try {
         if (!['accepted', 'declined'].includes(status)) {
             return res.status(400).json({ message: 'Invalid status' });
         }
@@ -157,35 +135,18 @@ app.put('/student/:id/status', async (req, res) => {
     }
 });
 
-
-
+// Ban a user
 app.post('/banUser', async (req, res) => {
     const { rollno } = req.body;
     try {
-        const banneduser = await bannedDb.create({ rollno });
-        //res.status(200).json( bl );
-        res.status(200).json({ "student": banneduser });
+        const bannedUser = await bannedDb.create({ rollno });
+        res.status(200).json({ "student": bannedUser });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-app.post('/update-status/:id', async (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body; // Expect 'accepted' or 'declined'
-
-  try {
-    const student = await Student.findByIdAndUpdate(id, { status: status }, { new: true });
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-    res.json(student); // Return updated student
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating status' });
-  }
-});
-
-
+// Main info by slot number
 app.get('/maininfo/:slotno', async (req, res) => {
     const { slotno } = req.params;
 
