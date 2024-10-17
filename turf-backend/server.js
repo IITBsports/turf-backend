@@ -17,35 +17,27 @@ mongoose.connect("mongodb+srv://mndalwee:upiyQLuNAH6gmhK3@usersignup.ze0r2.mongo
 
 app.use(cors());
 app.use(express.json());
-app.get('/', async (req, res) => {
+app.get('/students', async (req, res) => {
   try {
-    // Fetch data from both collections
     const students = await Student.find();
-    const mainInfos = await MainInfo.find();
-
-    // Find intersection based on rollno
-    const intersection = students.filter(student =>
-      mainInfos.some(mainInfo => mainInfo.rollno === student.rollno)
-    );
-
-    // Prepare the combined data
-    const combinedData = intersection.map(student => {
-      const mainInfo = mainInfos.find(info => info.rollno === student.rollno);
-      return {
-        ...student.toObject(),
-        mainInfo: mainInfo || null // Add mainInfo if it exists
-      };
-    });
-
-    // Send the combined data in the response
-    res.json({
-      requests: combinedData, // Rename to requests for clarity
-    });
+    res.json(students);
   } catch (error) {
-    console.error('Error fetching data:', error);
+    console.error('Error fetching students:', error);
     res.status(500).send('Server error');
   }
 });
+
+// Route to get all main info
+app.get('/maininfos', async (req, res) => {
+  try {
+    const mainInfos = await MainInfo.find();
+    res.json(mainInfos);
+  } catch (error) {
+    console.error('Error fetching main info:', error);
+    res.status(500).send('Server error');
+  }
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
