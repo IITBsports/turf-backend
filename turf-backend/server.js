@@ -63,7 +63,7 @@ app.post('/', async (req, res) => {
       player_roll_no,
       slot,
       no_of_players,
-      status: status || 'pending',
+      status,
     });
 
     // Create new mainInfo record
