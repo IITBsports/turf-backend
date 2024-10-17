@@ -19,13 +19,25 @@ app.use(cors());
 app.use(express.json());
 app.get('/', async (req, res) => {
     try {
-        const bl = await student.find({});
-        //res.status(200).json( bl );
-        res.status(200).json(bl);
+        // Fetch data from both collections concurrently
+        const [students, mainInfos] = await Promise.all([
+            student.find({}),
+            mainInfo.find({})
+        ]);
+
+        // Combine the results into a single object
+        const combinedResults = {
+            students,
+            mainInfos,
+        };
+
+        // Send the combined results as the response
+        res.status(200).json(combinedResults);
     } catch (e) {
-        res.status(500).json({ message: e.message })
+        res.status(500).json({ message: e.message });
     }
-})
+});
+
 
 app.get('/slot', async (req, res) => {
     try {
