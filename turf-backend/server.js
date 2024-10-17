@@ -38,7 +38,7 @@ app.get('/slot', async (req, res) => {
 })
 
 app.post('/', async (req, res) => {
-    const { rollno, slot } = req.body;
+    const { rollno, slot, status } = req.body;  // Accept status from the request body
     try {
         const isBanned = await bannedDb.findOne({ rollno });
         if (isBanned) {
@@ -49,7 +49,8 @@ app.post('/', async (req, res) => {
 
         const MainInfo = await mainInfo.create({
             rollno: newStudent.rollno,
-            slotno: newStudent.slot
+            slotno: newStudent.slot,
+            status: status || 'pending'  // Set status or default to 'pending'
         });
 
         res.status(200).json({
@@ -60,6 +61,7 @@ app.post('/', async (req, res) => {
     } catch (e) {
         res.status(500).json({ message: e.message });
     }
+
     // const { rollno } = req.body;
     // try {
     //     const isBanned = await bannedDb.findOne({ rollno });
