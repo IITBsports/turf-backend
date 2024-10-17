@@ -123,7 +123,7 @@ app.put('/student/:id/status', async (req, res) => {
             return res.status(400).json({ message: 'Invalid status' });
         }
 
-        const updatedStudent = await mainInfo.findByIdAndUpdate(id, { status }, { new: true });
+        const updatedStudent = await student.findByIdAndUpdate(id, { status }, { new: true });
 
         if (!updatedStudent) {
             return res.status(404).json({ message: 'Student not found' });
