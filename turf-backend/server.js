@@ -18,24 +18,20 @@ mongoose.connect("mongodb+srv://mndalwee:upiyQLuNAH6gmhK3@usersignup.ze0r2.mongo
 app.use(cors());
 app.use(express.json());
 app.get('/', async (req, res) => {
-    try {
-        // Fetch data from both collections concurrently
-        const [students, mainInfos] = await Promise.all([
-            student.find({}),
-            mainInfo.find({})
-        ]);
+  try {
+    // Fetch data from both collections
+    const students = await Student.find();
+    const mainInfos = await MainInfo.find();
 
-        // Combine the results into a single object
-        const combinedResults = {
-            students,
-            mainInfos,
-        };
-
-        // Send the combined results as the response
-        res.status(200).json(combinedResults);
-    } catch (e) {
-        res.status(500).json({ message: e.message });
-    }
+    // Send both in the response
+    res.json({
+      student: students,
+      maininfo: mainInfos,
+    });
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    res.status(500).send('Server error');
+  }
 });
 
 
