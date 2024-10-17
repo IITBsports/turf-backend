@@ -19,7 +19,7 @@ app.use(cors());
 app.use(express.json());
 app.get('/students', async (req, res) => {
   try {
-    const students = await Student.find();
+    const students = await student.find();
     res.json(students);
   } catch (error) {
     console.error('Error fetching students:', error);
@@ -30,7 +30,7 @@ app.get('/students', async (req, res) => {
 // Route to get all main info
 app.get('/maininfos', async (req, res) => {
   try {
-    const mainInfos = await MainInfo.find();
+    const mainInfos = await mainInfo.find();
     res.json(mainInfos);
   } catch (error) {
     console.error('Error fetching main info:', error);
