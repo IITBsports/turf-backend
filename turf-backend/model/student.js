@@ -4,6 +4,10 @@ const purposeEnum = [
     'match among friends', 'council match', 'frisbee club'
 ];
 
+const statusEnum = [
+    'pending', 'accepted', 'declined'
+];
+
 const StudentSchema = mongoose.Schema(
     {
         name: {
@@ -28,16 +32,23 @@ const StudentSchema = mongoose.Schema(
             trim: true,
         },
         slot: {
-            type: Number,  // Ensure this is a string to match the frontend
+            type: Number,
             required: true,
         },
-        no_of_players: {  // Optional if not required from the frontend
+        no_of_players: {  
             type: Number,
-            required: false, // Make it optional if not sent from frontend
+            required: false, 
             trim: true
         },
-    }
+        status: {
+            type: String,
+            enum: statusEnum,
+            default: 'pending',  // By default set to 'pending'
+            required: true
+        }
+    },
+    { timestamps: true }  // Automatically adds createdAt and updatedAt timestamps
 );
 
-const student = mongoose.model("Student", StudentSchema);
-module.exports = student;
+const Student = mongoose.model("Student", StudentSchema);
+module.exports = Student;
