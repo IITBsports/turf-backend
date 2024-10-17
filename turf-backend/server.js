@@ -23,15 +23,33 @@ app.get('/', async (req, res) => {
     const students = await Student.find();
     const mainInfos = await MainInfo.find();
 
-    // Send both in the response
+    // Find intersection based on rollno
+    const intersection = students.filter(student =>
+      mainInfos.some(mainInfo => mainInfo.rollno === student.rollno)
+    );
+
+    // Prepare the combined data
+    const combinedData = intersection.map(student => {
+      const mainInfo = mainInfos.find(info => info.rollno === student.rollno);
+      return {
+        ...student.toObject(),
+        mainInfo: mainInfo || null // Add mainInfo if it exists
+      };
+    });
+
+    // Send the combined data in the response
     res.json({
-      student: students,
-      maininfo: mainInfos,
+      requests: combinedData, // Rename to requests for clarity
     });
   } catch (error) {
     console.error('Error fetching data:', error);
     res.status(500).send('Server error');
   }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
 
 
