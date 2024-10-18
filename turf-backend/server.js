@@ -41,14 +41,47 @@ app.get('/maininfos', async (req, res) => {
 });
 
 // Slot management
-app.get('/slot', async (req, res) => {
+// New API endpoint to get slots status for each student
+app.get('/api/slots', async (req, res) => {
     try {
-        const bl = await mainInfo.find({});
-        res.status(200).json(bl);
-    } catch (e) {
-        res.status(500).json({ message: e.message });
+        // Fetch all students
+        const students = await student.find();
+
+        // Array to hold the response
+        const slotsInfo = [];
+
+        // Iterate through each student
+        students.forEach(student => {
+            const slotStatuses = [];
+            // Initialize slots 1 to 14
+            for (let i = 1; i <= 14; i++) {
+                // Find the status of the current slot for this student
+                const slot = student.slot.find(s => s.slotId === i);
+                if (slot) {
+                    // If the slot exists, use its status
+                    slotStatuses.push({ slotId: i, status: slot.status });
+                } else {
+                    // Default to available if slot does not exist
+                    slotStatuses.push({ slotId: i, status: 'available' });
+                }
+            }
+
+            // Add student information with their slot statuses to the response
+            slotsInfo.push({
+                rollNumber: student.rollno,
+                name: student.name,
+                slots: slotStatuses
+            });
+        });
+
+        // Send the response back
+        res.status(200).json(slotsInfo);
+    } catch (error) {
+        console.error('Error fetching slot statuses:', error);
+        res.status(500).send('Server error');
     }
 });
+
 
 // Create new student record
 app.post('/', async (req, res) => {
