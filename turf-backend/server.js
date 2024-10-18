@@ -40,17 +40,13 @@ app.get('/maininfos', async (req, res) => {
     }
 });
 
-// Slot management
-// New API endpoint to get slots status for each student
-// New API endpoint to get slots status for all students
-// New API endpoint to get slots status for all students
 // New API endpoint to get slots status for all students
 app.get('/api/slots', async (req, res) => {
     try {
         // Fetch all main info records
         const mainInfos = await mainInfo.find();
 
-        // Initialize an array for slots 1 to 14
+        // Initialize an array for slots 1 to 14, defaulting all to 'available'
         const slotsStatus = Array.from({ length: 14 }, (_, index) => ({
             slot: index + 1,
             status: 'available'  // Default to 'available'
@@ -70,12 +66,11 @@ app.get('/api/slots', async (req, res) => {
         for (let i = 1; i <= 14; i++) {
             const statuses = slotGroups[i] || [];
 
-            if (statuses.includes('accepted')) {
+            // Check for 'accepted' or 'pending' to set status to 'booked'
+            if (statuses.includes('accepted') || statuses.includes('pending')) {
                 slotsStatus[i - 1].status = 'booked';
-            } else if (statuses.includes('pending')) {
-                slotsStatus[i - 1].status = 'requested';
-            }
-            // If neither is present, status remains 'available'
+            } 
+            // If neither 'accepted' nor 'pending', status stays 'available'
         }
 
         // Send the updated slots status as a response
@@ -85,6 +80,7 @@ app.get('/api/slots', async (req, res) => {
         res.status(500).send('Server error');
     }
 });
+
 
 
 
