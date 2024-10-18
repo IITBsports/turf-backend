@@ -40,7 +40,6 @@ app.get('/maininfos', async (req, res) => {
     }
 });
 
-// New API endpoint to get slots status for all students
 app.get('/api/slots', async (req, res) => {
     try {
         // Fetch all main info records
@@ -66,11 +65,15 @@ app.get('/api/slots', async (req, res) => {
         for (let i = 1; i <= 14; i++) {
             const statuses = slotGroups[i] || [];
 
-            // Check for 'accepted' or 'pending' to set status to 'booked'
-            if (statuses.includes('accepted') || statuses.includes('pending')) {
+            // Check statuses in priority order
+            if (statuses.includes('accepted')) {
                 slotsStatus[i - 1].status = 'booked';
+            } else if (statuses.includes('pending')) {
+                slotsStatus[i - 1].status = 'requested';
+            } else if (statuses.includes('rejected')) {
+                slotsStatus[i - 1].status = 'available';  // Rejected slot is considered available
             } 
-            // If neither 'accepted' nor 'pending', status stays 'available'
+            // If no 'accepted', 'pending', or 'rejected', it stays 'available'
         }
 
         // Send the updated slots status as a response
@@ -80,6 +83,7 @@ app.get('/api/slots', async (req, res) => {
         res.status(500).send('Server error');
     }
 });
+
 
 
 
