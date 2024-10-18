@@ -42,47 +42,52 @@ app.get('/maininfos', async (req, res) => {
 
 app.get('/api/slots', async (req, res) => {
     try {
-        // Fetch all main info records
+        // Fetch all student records from the database
         const mainInfos = await student.find();
 
         // Initialize an array for slots 1 to 14, defaulting all to 'available'
         const slotsStatus = Array.from({ length: 14 }, (_, index) => ({
             slot: index + 1,
-            status: 'available'  // Default to 'available'
+            status: 'available'  // Default status for each slot is 'available'
         }));
 
         // Group main info entries by slot number
         const slotGroups = {};
         mainInfos.forEach(info => {
-            const slotNumber = info.slotno;
+            const slotNumber = info.slot;  // Assuming 'slot' contains the slot number
             if (!slotGroups[slotNumber]) {
                 slotGroups[slotNumber] = [];
             }
-            slotGroups[slotNumber].push(info.status);
+            slotGroups[slotNumber].push(info.status);  // Collect all statuses for each slot
         });
 
         // Determine the status for each slot
         for (let i = 1; i <= 14; i++) {
             const statuses = slotGroups[i] || [];
 
-            // Check statuses in priority order
+            // Priority 1: If any record has 'accepted', mark the slot as 'booked'
             if (statuses.includes('accepted')) {
                 slotsStatus[i - 1].status = 'booked';
-            } else if (statuses.includes('pending')) {
-                slotsStatus[i - 1].status = 'requested';
-            } else if (statuses.includes('rejected')) {
-                slotsStatus[i - 1].status = 'available';  // Rejected slot is considered available
             } 
-            // If no 'accepted', 'pending', or 'rejected', it stays 'available'
+            // Priority 2: If no 'accepted', but there is 'pending', mark the slot as 'requested'
+            else if (statuses.includes('pending')) {
+                slotsStatus[i - 1].status = 'requested';
+            } 
+            // Priority 3: If 'rejected', mark it as 'available'
+            else if (statuses.every(status => status === 'rejected')) {
+                slotsStatus[i - 1].status = 'available';
+            } 
+            // Default: If no relevant statuses (accepted/pending/rejected), the slot stays 'available'
         }
 
-        // Send the updated slots status as a response
+        // Send the updated slots status as a JSON response
         res.status(200).json(slotsStatus);
     } catch (error) {
         console.error('Error fetching slot statuses:', error);
         res.status(500).send('Server error');
     }
 });
+
 
 
 
