@@ -43,7 +43,7 @@ app.get('/maininfos', async (req, res) => {
 app.get('/api/slots', async (req, res) => {
     try {
         // Fetch all main info records
-        const mainInfos = await mainInfo.find();
+        const mainInfos = await student.find();
 
         // Initialize an array for slots 1 to 14, defaulting all to 'available'
         const slotsStatus = Array.from({ length: 14 }, (_, index) => ({
