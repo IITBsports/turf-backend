@@ -42,45 +42,48 @@ app.get('/maininfos', async (req, res) => {
 
 // Slot management
 // New API endpoint to get slots status for each student
+// New API endpoint to get slots status for all students
 app.get('/api/slots', async (req, res) => {
     try {
-        // Fetch all students
-        const students = await student.find();
+        // Fetch all main info records
+        const mainInfos = await mainInfo.find();
 
-        // Array to hold the response
-        const slotsInfo = [];
+        // Initialize an array for slots 1 to 14
+        const slotsStatus = Array.from({ length: 14 }, (_, index) => ({
+            slot: index + 1,
+            status: 'available'  // Default to 'available'
+        }));
 
-        // Iterate through each student
-        students.forEach(student => {
-            const slotStatuses = [];
-            // Initialize slots 1 to 14
-            for (let i = 1; i <= 14; i++) {
-                // Find the status of the current slot for this student
-                const slot = student.slot.find(s => s.slotId === i);
-                if (slot) {
-                    // If the slot exists, use its status
-                    slotStatuses.push({ slotId: i, status: slot.status });
-                } else {
-                    // Default to available if slot does not exist
-                    slotStatuses.push({ slotId: i, status: 'available' });
-                }
+        // Group main info entries by slot number
+        const slotGroups = {};
+        mainInfos.forEach(info => {
+            const slotNumber = info.slotno;
+            if (!slotGroups[slotNumber]) {
+                slotGroups[slotNumber] = [];
             }
-
-            // Add student information with their slot statuses to the response
-            slotsInfo.push({
-                rollNumber: student.rollno,
-                name: student.name,
-                slots: slotStatuses
-            });
+            slotGroups[slotNumber].push(info.status);
         });
 
-        // Send the response back
-        res.status(200).json(slotsInfo);
+        // Determine the status for each slot
+        for (let i = 1; i <= 14; i++) {
+            const statuses = slotGroups[i] || [];
+
+            if (statuses.includes('accepted')) {
+                slotsStatus[i - 1].status = 'accepted';
+            } else if (statuses.includes('pending')) {
+                slotsStatus[i - 1].status = 'pending';
+            }
+            // If neither is present, status remains 'available'
+        }
+
+        // Send the updated slots status as a response
+        res.status(200).json(slotsStatus);
     } catch (error) {
         console.error('Error fetching slot statuses:', error);
         res.status(500).send('Server error');
     }
 });
+
 
 
 // Create new student record
