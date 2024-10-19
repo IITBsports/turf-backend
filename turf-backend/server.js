@@ -95,6 +95,7 @@ app.get('/api/slots', async (req, res) => {
 
 
 // Create new student record
+// Create new student record
 app.post('/', async (req, res) => {
     try {
         const {
@@ -105,6 +106,7 @@ app.post('/', async (req, res) => {
             no_of_players,
             status,
             slot,
+            date,  // Accept date from request body
         } = req.body;
 
         // Check if user is banned
@@ -122,6 +124,7 @@ app.post('/', async (req, res) => {
             slot,
             no_of_players,
             status,
+            date,  // Add the date field to the new student record
         });
 
         // Create new mainInfo record
@@ -140,6 +143,7 @@ app.post('/', async (req, res) => {
         res.status(500).json({ message: e.message });
     }
 });
+
 
 // Delete student request by ID
 app.delete('/:id', async (req, res) => {
