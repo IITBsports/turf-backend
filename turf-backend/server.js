@@ -45,39 +45,66 @@ app.get('/api/slots', async (req, res) => {
         // Fetch all student records from the database
         const mainInfos = await student.find();
 
-        // Initialize an array for slots 1 to 14, defaulting all to 'available'
-        const slotsStatus = Array.from({ length: 14 }, (_, index) => ({
-            slot: index + 1,
-            status: 'available'  // Default status for each slot is 'available'
-        }));
+        // Get today's and tomorrow's dates in 'YYYY-MM-DD' format
+        const today = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(today.getDate() + 1);
 
-        // Group main info entries by slot number
+        const formatDate = (date) => {
+            return date.toISOString().split('T')[0]; // Format date as 'YYYY-MM-DD'
+        };
+
+        const todayDate = formatDate(today);
+        const tomorrowDate = formatDate(tomorrow);
+
+        // Initialize an array for slots 1 to 14 for both today and tomorrow, defaulting all to 'available'
+        const slotsStatus = [
+            ...Array.from({ length: 14 }, (_, index) => ({
+                slot: index + 1,
+                status: 'available',  // Default status for each slot is 'available'
+                date: todayDate        // Today's slots
+            })),
+            ...Array.from({ length: 14 }, (_, index) => ({
+                slot: index + 1,
+                status: 'available',   // Default status for each slot is 'available'
+                date: tomorrowDate     // Tomorrow's slots
+            }))
+        ];
+
+        // Group main info entries by slot number and date
         const slotGroups = {};
         mainInfos.forEach(info => {
             const slotNumber = info.slot;  // Assuming 'slot' contains the slot number
+            const slotDate = info.date;    // Assuming 'date' contains the date (in 'YYYY-MM-DD' format)
             if (!slotGroups[slotNumber]) {
-                slotGroups[slotNumber] = [];
+                slotGroups[slotNumber] = {};
             }
-            slotGroups[slotNumber].push(info.status);  // Collect all statuses for each slot
+            if (!slotGroups[slotNumber][slotDate]) {
+                slotGroups[slotNumber][slotDate] = [];
+            }
+            slotGroups[slotNumber][slotDate].push(info.status);  // Collect statuses for each slot and date
         });
 
         // Determine the status for each slot
         for (let i = 1; i <= 14; i++) {
-            const statuses = slotGroups[i] || [];
+            ['todayDate', 'tomorrowDate'].forEach(dateKey => {
+                const slotDate = dateKey === 'todayDate' ? todayDate : tomorrowDate;
+                const statuses = (slotGroups[i] && slotGroups[i][slotDate]) || [];
 
-            // Priority 1: If any record has 'accepted', mark the slot as 'booked'
-            if (statuses.includes('accepted')) {
-                slotsStatus[i - 1].status = 'booked';
-            } 
-            // Priority 2: If no 'accepted', but there is 'pending', mark the slot as 'requested'
-            else if (statuses.includes('pending')) {
-                slotsStatus[i - 1].status = 'requested';
-            } 
-            // Priority 3: If 'rejected', mark it as 'available'
-            else if (statuses.every(status => status === 'rejected')) {
-                slotsStatus[i - 1].status = 'available';
-            } 
-            // Default: If no relevant statuses (accepted/pending/rejected), the slot stays 'available'
+                // Priority 1: If any record has 'accepted', mark the slot as 'booked'
+                if (statuses.includes('accepted')) {
+                    slotsStatus.find(slot => slot.slot === i && slot.date === slotDate).status = 'booked';
+                } 
+                // Priority 2: If no 'accepted', but there is 'pending', mark the slot as 'requested'
+                else if (statuses.includes('pending')) {
+                    slotsStatus.find(slot => slot.slot === i && slot.date === slotDate).status = 'requested';
+                } 
+                // Priority 3: If 'rejected', mark it as 'available'
+                else if (statuses.every(status => status === 'rejected')) {
+                    slotsStatus.find(slot => slot.slot === i && slot.date === slotDate).status = 'available';
+                } 
+                // Default: If no relevant statuses, the slot stays 'available'
+            });
         }
 
         // Send the updated slots status as a JSON response
@@ -87,6 +114,7 @@ app.get('/api/slots', async (req, res) => {
         res.status(500).send('Server error');
     }
 });
+
 
 
 
