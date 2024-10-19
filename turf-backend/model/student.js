@@ -8,6 +8,14 @@ const statusEnum = [
     'pending', 'accepted', 'declined'
 ];
 
+// Helper function to get tomorrow's date
+const getTomorrowDate = () => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];  // Returns date in YYYY-MM-DD format
+};
+
 const StudentSchema = mongoose.Schema(
     {
         name: {
@@ -39,6 +47,11 @@ const StudentSchema = mongoose.Schema(
             type: Number,
             required: false, 
             trim: true
+        },
+        date: {
+            type: String,
+            default: getTomorrowDate,  // Default to tomorrow's date
+            required: true
         },
         status: {
             type: String,
