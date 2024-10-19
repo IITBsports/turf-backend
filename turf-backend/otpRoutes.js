@@ -1,7 +1,7 @@
 // otpRoutes.js
 const express = require('express');
 const otpGenerator = require('otp-generator');
-const Otp = require('./models/otp');
+const Otp = require('./model/otp');
 const { sendOtp } = require('./emailService');
 
 const router = express.Router();
