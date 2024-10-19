@@ -5,6 +5,7 @@ const student = require('./model/student.js');
 const bannedDb = require('./model/banned.js');
 const mainInfo = require('./model/main.js');
 const cors = require('cors');
+const otpRoutes = require('./otpRoutes'); 
 
 mongoose.connect("mongodb+srv://mndalwee:upiyQLuNAH6gmhK3@usersignup.ze0r2.mongodb.net/?retryWrites=true&w=majority&appName=userSignUp")
     .then(() => {
@@ -17,6 +18,8 @@ mongoose.connect("mongodb+srv://mndalwee:upiyQLuNAH6gmhK3@usersignup.ze0r2.mongo
 
 app.use(cors());
 app.use(express.json());
+
+app.use('/api/otp', otpRoutes);
 
 // Get all students
 app.get('/students', async (req, res) => {
