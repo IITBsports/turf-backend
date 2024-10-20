@@ -48,29 +48,36 @@ app.get('/api/slots', async (req, res) => {
         // Fetch all student records from the database
         const mainInfos = await student.find();
 
-        // Get today's and tomorrow's dates in 'YYYY-MM-DD' format
+        // Helper function to convert UTC time to IST time and format as 'YYYY-MM-DD'
+        const formatDateToIST = (date) => {
+            // Convert the time to IST (UTC + 5:30)
+            const istOffset = 5 * 60 + 30; // Offset in minutes (5 hours 30 minutes)
+            const istDate = new Date(date.getTime() + istOffset * 60 * 1000); // Adjust date by IST offset
+
+            // Format the IST date as 'YYYY-MM-DD'
+            return istDate.toISOString().split('T')[0];
+        };
+
+        // Get today's and tomorrow's dates in IST
         const today = new Date();
         const tomorrow = new Date();
         tomorrow.setDate(today.getDate() + 1);
 
-        const formatDate = (date) => {
-            return date.toISOString().split('T')[0]; // Format date as 'YYYY-MM-DD'
-        };
-
-        const todayDate = formatDate(today);
-        const tomorrowDate = formatDate(tomorrow);
+        // Format the dates in IST
+        const todayDate = formatDateToIST(today);
+        const tomorrowDate = formatDateToIST(tomorrow);
 
         // Initialize an array for slots 1 to 14 for both today and tomorrow, defaulting all to 'available'
         const slotsStatus = [
             ...Array.from({ length: 14 }, (_, index) => ({
                 slot: index + 1,
                 status: 'available',  // Default status for each slot is 'available'
-                date: todayDate        // Today's slots
+                date: todayDate        // Today's slots in IST
             })),
             ...Array.from({ length: 14 }, (_, index) => ({
                 slot: index + 1,
                 status: 'available',   // Default status for each slot is 'available'
-                date: tomorrowDate     // Tomorrow's slots
+                date: tomorrowDate     // Tomorrow's slots in IST
             }))
         ];
 
@@ -117,6 +124,7 @@ app.get('/api/slots', async (req, res) => {
         res.status(500).send('Server error');
     }
 });
+
 
 
 
