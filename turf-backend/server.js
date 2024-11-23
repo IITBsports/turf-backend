@@ -140,6 +140,7 @@ app.post('/', async (req, res) => {
         const {
             name,
             rollno,
+            email,
             purpose,
             player_roll_no,
             no_of_players,
@@ -158,6 +159,7 @@ app.post('/', async (req, res) => {
         const newStudent = await student.create({
             name,
             rollno,
+            email,
             purpose,
             player_roll_no,
             slot,
