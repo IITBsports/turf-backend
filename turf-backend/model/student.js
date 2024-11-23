@@ -28,6 +28,15 @@ const StudentSchema = mongoose.Schema(
             required: [true, "Enter your Roll Number"],
             trim: true
         },
+        email: {
+            type: String,
+            required: [true, 'Please enter your email'],
+            trim: true,
+            match: [
+                /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
+                'Please enter a valid email address'
+            ]
+        },
         purpose: {
             type: String,
             enum: purposeEnum,
