@@ -233,7 +233,7 @@ app.put('/student/:id/status', async (req, res) => {
         // If status is updated to 'accepted', send a confirmation email
         if (status === 'accepted') {
             const mailOptions = {
-                from: 'your-email@gmail.com',  // Replace with your email
+                from: 'techheadisc@gmail.com',  // Replace with your email
                 to: updatedStudent.email,     // Student's email
                 subject: 'Booking Confirmation',
                 text: `Hello ${updatedStudent.name},\n\nYour booking request for slot ${updatedStudent.slot} on ${updatedStudent.date} has been accepted.\n\nThank you!`
