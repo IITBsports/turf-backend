@@ -180,10 +180,27 @@ app.post('/', async (req, res) => {
         });
 
         // Create new mainInfo record
+        // Create new mainInfo record
         const MainInfo = await mainInfo.create({
             rollno: newStudent.rollno,
             slotno: newStudent.slot,
             status: newStudent.status,
+        });
+
+        // Send a notification email to the student
+        const mailOptions = {
+            from: 'techheadisc@gmail.com',  // Replace with your email
+            to: email,                     // Student's email
+            subject: 'Slot Booking Request Received',
+            text: `Hello ${name},\n\nYour booking request for slot ${slot} on ${date} has been received. The Institute Football Secretary will review and approve your request shortly.\n\nThank you!`
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.error('Error sending email:', error);
+            } else {
+                console.log('Booking confirmation email sent:', info.response);
+            }
         });
 
         res.status(200).json({
