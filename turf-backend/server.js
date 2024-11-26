@@ -6,6 +6,17 @@ const bannedDb = require('./model/banned.js');
 const mainInfo = require('./model/main.js');
 const cors = require('cors');
 const otpRoutes = require('./otpRoutes'); 
+const nodemailer = require('nodemailer');
+
+// Configure Nodemailer transporter
+const transporter = nodemailer.createTransport({
+    service: 'gmail', // Use your email provider
+    auth: {
+        user: 'techheadisc@gmail.com', // Replace with your email
+        pass: 'Techhead@2024'  // Replace with your app-specific password
+    }
+});
+
 
 mongoose.connect("mongodb+srv://mndalwee:upiyQLuNAH6gmhK3@usersignup.ze0r2.mongodb.net/?retryWrites=true&w=majority&appName=userSignUp")
     .then(() => {
@@ -203,6 +214,7 @@ app.delete('/:id', async (req, res) => {
 });
 
 // Update status of a student based on request
+// Update status of a student and send confirmation email if accepted
 app.put('/student/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body; // Expect 'accepted' or 'declined'
@@ -218,11 +230,31 @@ app.put('/student/:id/status', async (req, res) => {
             return res.status(404).json({ message: 'Student not found' });
         }
 
-        res.status(200).json({ message: 'Status updated successfully', mainInfo: updatedStudent });
+        // If status is updated to 'accepted', send a confirmation email
+        if (status === 'accepted') {
+            const mailOptions = {
+                from: 'your-email@gmail.com',  // Replace with your email
+                to: updatedStudent.email,     // Student's email
+                subject: 'Booking Confirmation',
+                text: `Hello ${updatedStudent.name},\n\nYour booking request for slot ${updatedStudent.slot} on ${updatedStudent.date} has been accepted.\n\nThank you!`
+            };
+
+            // Send email
+            transporter.sendMail(mailOptions, (error, info) => {
+                if (error) {
+                    console.error('Error sending email:', error);
+                } else {
+                    console.log('Email sent:', info.response);
+                }
+            });
+        }
+
+        res.status(200).json({ message: 'Status updated successfully', student: updatedStudent });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });
+
 
 // Ban a user
 app.post('/banUser', async (req, res) => {
