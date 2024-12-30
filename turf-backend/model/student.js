@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 
-const purposeEnum = [
-    'match among friends', 'council match', 'frisbee club'
-];
+// const purposeEnum = [
+//     'match among friends', 'council match', 'frisbee club'
+// ];
 
 const statusEnum = [
     'pending', 'accepted', 'declined'
@@ -37,12 +37,12 @@ const StudentSchema = mongoose.Schema(
                 'Please enter a valid email address'
             ]
         },
-        purpose: {
-            type: String,
-            enum: purposeEnum,
-            trim: true,
-            required: [true, "Enter your purpose of booking"]
-        },
+        // purpose: {
+        //     type: String,
+        //     enum: purposeEnum,
+        //     trim: true,
+        //     required: [true, "Enter your purpose of booking"]
+        // },
         player_roll_no: {
             type: String,
             required: [true, 'Player roll numbers are required'],

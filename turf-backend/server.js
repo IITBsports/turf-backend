@@ -171,7 +171,6 @@ app.post('/', async (req, res) => {
             name,
             rollno,
             email,
-            purpose,
             player_roll_no,
             slot,
             no_of_players,
@@ -191,8 +190,18 @@ app.post('/', async (req, res) => {
         const mailOptions = {
             from: 'techheadisc@gmail.com',  // Replace with your email
             to: email,                     // Student's email
-            subject: 'Slot Booking Request Received',
-            text: `Hello ${name},\n\nYour booking request for slot ${slot} on ${date} has been received. The Institute Football Secretary will review and approve your request shortly.\n\nThank you!`
+            subject: 'Turf Booking Request Received',
+            text: `Greetings,\n
+This email is to confirm your booking of the Gymkhana Football Turf. Please find the booking details below:\n
+Name:${name}\n
+Time:${slot}\n
+Date:${date}\n
+We kindly request you to make the most of this facility while adhering to the rules and regulations that help us maintain it for everyone's enjoyment.\n
+If you have any questions or need further assistance, feel free to reach out.\n
+Warm regards,\n
+Rajwardhan Toraskar\n
+Institute Football Secretary, 2024-25\n
+Ph: +91 96190 00065\n`
         };
 
         transporter.sendMail(mailOptions, (error, info) => {
@@ -253,7 +262,17 @@ app.put('/student/:id/status', async (req, res) => {
                 from: 'techheadisc@gmail.com',  // Replace with your email
                 to: updatedStudent.email,     // Student's email
                 subject: 'Booking Confirmation',
-                text: `Hello ${updatedStudent.name},\n\nYour booking request for slot ${updatedStudent.slot} on ${updatedStudent.date} has been accepted.\n\nThank you!`
+                text: `Greetings,\n This email is to confirm your booking of the Gymkhana Football Turf. Please find the booking details below:\n
+Name:${updatedStudent.name}\n
+Time:${updatedStudent.slot}\n
+Date:${updatedStudent.date}\n
+We kindly request you to make the most of this facility while adhering to the rules and regulations that help us maintain it for everyone's enjoyment.\n
+If you have any questions or need further assistance, feel free to reach out.\n
+Warm regards,\n
+Rajwardhan Toraskar\n
+Institute Football Secretary, 2024-25\n
+Ph: +91 96190 00065\n`
+
             };
 
             // Send email
