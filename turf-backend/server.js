@@ -211,11 +211,12 @@ app.post('/', async (req, res) => {
             to: email,                     // Student's email
             subject: 'Turf Booking Request Received',
             text: `Greetings,\n
-This email is to confirm your booking of the Gymkhana Football Turf. Please find the booking details below:\n
-Name:${name}\n
-Time:${slotTime}\n
-Date:${date}\n
-We kindly request you to make the most of this facility while adhering to the rules and regulations that help us maintain it for everyone's enjoyment.\n
+This email acknowledges your request to book the Gymkhana Football Turf. Please find the details of your request below:\n
+Name: ${name}\n
+Requested Time: ${slotTime}\n
+Requested Date: ${date}\n
+Please note that this is just an acknowledgment of your booking request. You will receive a final email confirming your booking if it is approved by the Institute Football Secretary.\n
+We kindly request you to await the confirmation email before making any plans regarding the turf usage.\n
 If you have any questions or need further assistance, feel free to reach out.\n
 Warm regards,\n
 Rajwardhan Toraskar\n
@@ -275,34 +276,46 @@ app.put('/student/:id/status', async (req, res) => {
             return res.status(404).json({ message: 'Student not found' });
         }
 
-        // If status is updated to 'accepted', send a confirmation email
+        // Prepare mail options based on the status
+        let mailOptions = {};
         if (status === 'accepted') {
-            const mailOptions = {
+            mailOptions = {
                 from: 'techheadisc@gmail.com',  // Replace with your email
-                to: updatedStudent.email,     // Student's email
-                subject: 'Booking Confirmation',
-                text: `Greetings,\n This email is to confirm your booking of the Gymkhana Football Turf. Please find the booking details below:\n
-Name:${updatedStudent.name}\n
-Time:${updatedStudent.slot}\n
-Date:${updatedStudent.date}\n
-We kindly request you to make the most of this facility while adhering to the rules and regulations that help us maintain it for everyone's enjoyment.\n
-If you have any questions or need further assistance, feel free to reach out.\n
+                to: updatedStudent.email,      // Student's email
+                subject: 'Turf Booking Confirmation',
+                text: `Greetings,\n\nThis email is to confirm your booking of the Gymkhana Football Turf. Please find the booking details below:\n\n
+Name: ${updatedStudent.name}\n
+Time: ${updatedStudent.slot}\n
+Date: ${updatedStudent.date}\n\n
+We kindly request you to make the most of this facility while adhering to the rules and regulations that help us maintain it for everyone's enjoyment.\n\n
+If you have any questions or need further assistance, feel free to reach out.\n\n
 Warm regards,\n
 Rajwardhan Toraskar\n
 Institute Football Secretary, 2024-25\n
 Ph: +91 96190 00065\n`
-
             };
-
-            // Send email
-            transporter.sendMail(mailOptions, (error, info) => {
-                if (error) {
-                    console.error('Error sending email:', error);
-                } else {
-                    console.log('Email sent:', info.response);
-                }
-            });
+        } else if (status === 'declined') {
+            mailOptions = {
+                from: 'techheadisc@gmail.com',  // Replace with your email
+                to: updatedStudent.email,      // Student's email
+                subject: 'Booking Declined',
+                text: `Greetings,\n\nWe regret to inform you that your booking request for the Gymkhana Football Turf has been declined. We apologize for any inconvenience this may cause.\n\n
+If you have any questions or need further clarification, feel free to reach out.\n\n
+Warm regards,\n
+Rajwardhan Toraskar\n
+Institute Football Secretary, 2024-25\n
+Ph: +91 96190 00065\n`
+            };
         }
+
+        // Send the email
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.error('Error sending email:', error);
+            } else {
+                console.log('Email sent:', info.response);
+            }
+        });
 
         res.status(200).json({ message: 'Status updated successfully', student: updatedStudent });
     } catch (error) {
