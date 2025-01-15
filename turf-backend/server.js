@@ -276,6 +276,26 @@ app.put('/student/:id/status', async (req, res) => {
             return res.status(404).json({ message: 'Student not found' });
         }
 
+        const slotTimeMap = {
+            1: "6:30 AM - 7:30 AM",
+            2: "7:30 AM - 8:30 AM",
+            3: "8:30 AM - 9:30 AM",
+            4: "9:30 AM - 10:30 AM",
+            5: "10:30 AM - 11:30 AM",
+            6: "11:30 AM - 12:30 PM",
+            7: "12:30 PM - 1:30 PM",
+            8: "1:30 PM - 2:30 PM",
+            9: "2:30 PM - 3:30 PM",
+            10: "3:30 PM - 5:00 PM",
+            11: "5:00 PM - 6:00 PM",
+            12: "6:00 PM - 7:00 PM",
+            13: "7:00 PM - 8:00 PM",
+            14: "8:00 PM - 9:30 PM"
+        };
+
+        const updatedslotTime = slotTimeMap[updatedStudent.slot] || 'Unknown time range';
+
+
         // Prepare mail options based on the status
         let mailOptions = {};
         if (status === 'accepted') {
@@ -285,7 +305,7 @@ app.put('/student/:id/status', async (req, res) => {
                 subject: 'Turf Booking Confirmation',
                 text: `Greetings,\n\nThis email is to confirm your booking of the Gymkhana Football Turf. Please find the booking details below:\n\n
 Name: ${updatedStudent.name}\n
-Time: ${updatedStudent.slot}\n
+Time: ${updatedslotTime}\n
 Date: ${updatedStudent.date}\n\n
 We kindly request you to make the most of this facility while adhering to the rules and regulations that help us maintain it for everyone's enjoyment.\n\n
 If you have any questions or need further assistance, feel free to reach out.\n\n
