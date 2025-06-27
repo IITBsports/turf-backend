@@ -25,10 +25,15 @@ mongoose.connect(mongoUri)
         console.log("connected to database");
         // Use PORT environment variable for Back4App compatibility
         const port = process.env.PORT || 3010;
-        app.listen(port, () => console.log(`server has started on ${port}`));
+        // IMPORTANT: Bind to 0.0.0.0 for container environments
+        app.listen(port, '0.0.0.0', () => {
+            console.log(`server has started on port ${port}`);
+            console.log(`Health check available at http://localhost:${port}/health`);
+        });
     })
     .catch((err) => {
         console.log("connection to database failed", err);
+        process.exit(1); // Exit with error code if DB connection fails
     });
 
 app.use(cors());
