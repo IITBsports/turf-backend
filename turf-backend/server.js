@@ -18,7 +18,7 @@ const transporter = nodemailer.createTransport({
 });
 
 
-mongoose.connect("mongodb+srv://mndalwee:upiyQLuNAH6gmhK3@usersignup.ze0r2.mongodb.net/?retryWrites=true&w=majority&appName=userSignUp")
+mongoose.connect("mongodb+srv://aryanshtechhead:XdtUr6uOOCtwkgxE@turf-booking.ydar6gc.mongodb.net/?retryWrites=true&w=majority&appName=Turf-Booking")
     .then(() => {
         console.log("connected to database");
         app.listen(3010, () => console.log("server has started on 3010"));
@@ -26,6 +26,7 @@ mongoose.connect("mongodb+srv://mndalwee:upiyQLuNAH6gmhK3@usersignup.ze0r2.mongo
     .catch((err) => {
         console.log("connection to database failed", err);
     });
+
 
 app.use(cors());
 app.use(express.json());
