@@ -21,12 +21,8 @@ RUN adduser -S nextjs -u 1001
 RUN chown -R nextjs:nodejs /app
 USER nextjs
 
-# Expose port (adjust if your app uses different port)
-EXPOSE 3010
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node healthcheck.js || exit 1
+# Expose port (Back4App will set PORT env variable)
+EXPOSE $PORT
 
 # Start the application
-CMD ["node", "server.js"]
+CMD ["node", "index.js"]
