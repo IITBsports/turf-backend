@@ -219,9 +219,9 @@ Please note that this is just an acknowledgment of your booking request. You wil
 We kindly request you to await the confirmation email before making any plans regarding the turf usage.\n
 If you have any questions or need further assistance, feel free to reach out.\n
 Warm regards,\n
-Kalpesh Khare\n
-Institute Sports Technical Head, 2024-25\n
-Ph: +91 9022513006\n`
+Yash Shah\n
+Institute Sports Football Secretary, 2025-26\n
+Ph: +91 8849468317\n`
         };
 
         transporter.sendMail(mailOptions, (error, info) => {
@@ -310,8 +310,8 @@ Date: ${updatedStudent.date}\n\n
 We kindly request you to make the most of this facility while adhering to the rules and regulations that help us maintain it for everyone's enjoyment.\n\n
 If you have any questions or need further assistance, feel free to reach out.\n\n
 Warm regards,\n
-Kalpesh Khare\n
-Institute Sports Technical Head, 2024-25\n
+Yash Shah\n
+Institute Sports Football Secretary , 2025-26\n
 Ph: +91 9022513006\n`
             };
         } else if (status === 'declined') {
@@ -322,8 +322,8 @@ Ph: +91 9022513006\n`
                 text: `Greetings,\n\nWe regret to inform you that your booking request for the Gymkhana Football Turf has been declined. We apologize for any inconvenience this may cause.\n\n
 If you have any questions or need further clarification, feel free to reach out.\n\n
 Warm regards,\n
-Kalpesh Khare\n
-Institute Sports Technical Head, 2024-25\n
+Yash Shah\n
+Institute Sports Football Secretary , 2025-26\n
 Ph: +91 9022513006\n`
             };
         }
