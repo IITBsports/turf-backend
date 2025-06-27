@@ -9,7 +9,7 @@ const otpRoutes = require('./otpRoutes.js');
 const nodemailer = require('nodemailer');
 
 // Use environment variables for sensitive data
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER || 'techheadisc@gmail.com',
