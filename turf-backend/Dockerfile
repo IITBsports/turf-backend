@@ -22,7 +22,7 @@ RUN chown -R nextjs:nodejs /app
 USER nextjs
 
 # Expose port (Back4App will set PORT env variable)
-EXPOSE $PORT
+EXPOSE 3010
 
 # Start the application
 CMD ["node", "index.js"]
