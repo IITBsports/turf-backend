@@ -234,8 +234,8 @@ Please note that this is just an acknowledgment of your booking request. You wil
 We kindly request you to await the confirmation email before making any plans regarding the turf usage.\n
 If you have any questions or need further assistance, feel free to reach out.\n
 Warm regards,\n
-Yash Shah\n
-Institute Sports Football Secretary, 2025-26\n
+Yash Shah
+Institute Sports Football Secretary, 2025-26
 Ph: +91 8849468317\n`
         };
 
