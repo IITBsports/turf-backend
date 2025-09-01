@@ -8,14 +8,57 @@ const cors = require('cors');
 const otpRoutes = require('./otpRoutes.js'); 
 const nodemailer = require('nodemailer');
 
-// Use environment variables for sensitive data
+// Enhanced transporter configuration with timeout fixes
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,        // false for 587, true for 465
+    requireTLS: true,     // Force TLS
     auth: {
         user: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
         pass: process.env.EMAIL_PASS || 'zlsttvscsjwlflqs'
+    },
+    connectionTimeout: 60000,  // 60 seconds
+    greetingTimeout: 30000,    // 30 seconds  
+    socketTimeout: 75000,      // 75 seconds
+    debug: true,              // Enable debug output
+    logger: true             // Log information to console
+});
+
+// Verify transporter on startup
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('SMTP connection failed:', error);
+    } else {
+        console.log('SMTP server is ready to take messages');
     }
 });
+
+// Enhanced email sending function with better error handling
+const sendEmailAsync = (mailOptions) => {
+    return new Promise((resolve, reject) => {
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.error('Email error details:', {
+                    error: error.message,
+                    code: error.code,
+                    command: error.command,
+                    response: error.response,
+                    responseCode: error.responseCode
+                });
+                resolve({ success: false, error }); // Don't reject to prevent app crashes
+            } else {
+                console.log('Email sent successfully:', {
+                    messageId: info.messageId,
+                    accepted: info.accepted,
+                    rejected: info.rejected,
+                    response: info.response
+                });
+                resolve({ success: true, info });
+            }
+        });
+    });
+};
 
 // Use environment variable for MongoDB connection
 const mongoUri = process.env.MONGODB_URI || "mongodb+srv://aryanshtechhead:XdtUr6uOOCtwkgxE@turf-booking.ydar6gc.mongodb.net/?retryWrites=true&w=majority&appName=Turf-Booking";
@@ -42,6 +85,19 @@ app.use(express.json());
 // Health check endpoint for container monitoring
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Test email endpoint for debugging
+app.get('/test-email', async (req, res) => {
+    const testMailOptions = {
+        from: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
+        to: 'test@example.com', // Replace with your test email
+        subject: 'Test Email Configuration',
+        text: 'This is a test email to verify SMTP configuration.'
+    };
+
+    const result = await sendEmailAsync(testMailOptions);
+    res.json(result);
 });
 
 // Your existing routes remain the same...
@@ -234,37 +290,43 @@ app.post('/', async (req, res) => {
 
         // Send a notification email to the student
         const mailOptions = {
-            from: 'aryansh.techhead@gmail.com',  // Replace with your email
+            from: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
             to: email,                     // Student's email
             subject: 'Turf Booking Request Received',
-            text: `Greetings,\n
-This email acknowledges your request to book the Gymkhana Football Turf. Please find the details of your request below:\n
-Name: ${name}\n
-Requested Time: ${slotTime}\n
-Requested Date: ${date}\n
-Request submitted at: ${newStudent.createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n
-Please note that this is just an acknowledgment of your booking request. You will receive a final email confirming your booking if it is approved by the Institute Football Secretary.\n
-Requests are processed on a first-come-first-served basis based on submission time.\n
-We kindly request you to await the confirmation email before making any plans regarding the turf usage.\n
-If you have any questions or need further assistance, feel free to reach out.\n
-Warm regards,\n
+            text: `Greetings,
+
+This email acknowledges your request to book the Gymkhana Football Turf. Please find the details of your request below:
+
+Name: ${name}
+Requested Time: ${slotTime}
+Requested Date: ${date}
+Request submitted at: ${newStudent.createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+
+Please note that this is just an acknowledgment of your booking request. You will receive a final email confirming your booking if it is approved by the Institute Football Secretary.
+
+Requests are processed on a first-come-first-served basis based on submission time.
+
+We kindly request you to await the confirmation email before making any plans regarding the turf usage.
+
+If you have any questions or need further assistance, feel free to reach out.
+
+Warm regards,
 Yash Shah
 Institute Sports Football Secretary, 2025-26
-Ph: +91 8849468317\n`
+Ph: +91 8849468317`
         };
 
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.error('Error sending email:', error);
-            } else {
-                console.log('Booking confirmation email sent:', info.response);
-            }
-        });
+        // Use async email sending with error handling
+        const emailResult = await sendEmailAsync(mailOptions);
+        if (!emailResult.success) {
+            console.error('Failed to send acknowledgment email, but booking was successful');
+        }
 
         res.status(200).json({
             student: newStudent,
             mainInfo: MainInfo,
-            message: `Request submitted successfully. You are in queue position based on ${newStudent.createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`
+            message: `Request submitted successfully. You are in queue position based on ${newStudent.createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`,
+            emailSent: emailResult.success
         });
 
     } catch (e) {
@@ -354,30 +416,33 @@ app.put('/student/:id/status', async (req, res) => {
                 { status: 'declined' }
             );
 
-            // Send decline emails to other pending requests
+            // Send decline emails to other pending requests with async handling
             for (const otherRequest of otherPendingRequests) {
                 const declineMailOptions = {
-                    from: 'aryansh.techhead@gmail.com',
+                    from: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
                     to: otherRequest.email,
                     subject: 'Booking Declined - Slot Already Booked',
-                    text: `Greetings,\n\nWe regret to inform you that your booking request for the Gymkhana Football Turf has been declined as the slot has been allocated to an earlier request.\n\n
-Slot: ${updatedStudent.slot}\n
-Date: ${updatedStudent.date}\n\n
-We process requests on a first-come-first-served basis. Please try booking another available slot.\n\n
-If you have any questions or need further clarification, feel free to reach out.\n\n
-Warm regards,\n
-Yash Shah\n
-Institute Sports Football Secretary, 2025-26\n
-Ph: +91 9022513006\n`
+                    text: `Greetings,
+
+We regret to inform you that your booking request for the Gymkhana Football Turf has been declined as the slot has been allocated to an earlier request.
+
+Slot: ${updatedStudent.slot}
+Date: ${updatedStudent.date}
+
+We process requests on a first-come-first-served basis. Please try booking another available slot.
+
+If you have any questions or need further clarification, feel free to reach out.
+
+Warm regards,
+Yash Shah
+Institute Sports Football Secretary, 2025-26
+Ph: +91 9022513006`
                 };
 
-                transporter.sendMail(declineMailOptions, (error, info) => {
-                    if (error) {
-                        console.error('Error sending decline email:', error);
-                    } else {
-                        console.log('Decline email sent to:', otherRequest.email);
-                    }
-                });
+                const declineEmailResult = await sendEmailAsync(declineMailOptions);
+                if (!declineEmailResult.success) {
+                    console.error(`Failed to send decline email to: ${otherRequest.email}`);
+                }
             }
         }
 
@@ -404,48 +469,53 @@ Ph: +91 9022513006\n`
         let mailOptions = {};
         if (status === 'accepted') {
             mailOptions = {
-                from: 'aryansh.techhead@gmail.com',  // Replace with your email
+                from: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
                 to: updatedStudent.email,      // Student's email
                 subject: 'Turf Booking Confirmation',
-                text: `Greetings,\n\nThis email is to confirm your booking of the Gymkhana Football Turf. Please find the booking details below:\n\n
-Name: ${updatedStudent.name}\n
-Time: ${updatedslotTime}\n
-Date: ${updatedStudent.date}\n
-Original Request Time: ${updatedStudent.createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\n
-We kindly request you to make the most of this facility while adhering to the rules and regulations that help us maintain it for everyone's enjoyment.\n\n
-If you have any questions or need further assistance, feel free to reach out.\n\n
-Warm regards,\n
-Yash Shah\n
-Institute Sports Football Secretary, 2025-26\n
-Ph: +91 9022513006\n`
+                text: `Greetings,
+
+This email is to confirm your booking of the Gymkhana Football Turf. Please find the booking details below:
+
+Name: ${updatedStudent.name}
+Time: ${updatedslotTime}
+Date: ${updatedStudent.date}
+Original Request Time: ${updatedStudent.createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+
+We kindly request you to make the most of this facility while adhering to the rules and regulations that help us maintain it for everyone's enjoyment.
+
+If you have any questions or need further assistance, feel free to reach out.
+
+Warm regards,
+Yash Shah
+Institute Sports Football Secretary, 2025-26
+Ph: +91 9022513006`
             };
         } else if (status === 'declined') {
             mailOptions = {
-                from: 'aryansh.techhead@gmail.com',  // Replace with your email
+                from: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
                 to: updatedStudent.email,      // Student's email
                 subject: 'Booking Declined',
-                text: `Greetings,\n\nWe regret to inform you that your booking request for the Gymkhana Football Turf has been declined. We apologize for any inconvenience this may cause.\n\n
-If you have any questions or need further clarification, feel free to reach out.\n\n
-Warm regards,\n
-Yash Shah\n
-Institute Sports Football Secretary, 2025-26\n
-Ph: +91 9022513006\n`
+                text: `Greetings,
+
+We regret to inform you that your booking request for the Gymkhana Football Turf has been declined. We apologize for any inconvenience this may cause.
+
+If you have any questions or need further clarification, feel free to reach out.
+
+Warm regards,
+Yash Shah
+Institute Sports Football Secretary, 2025-26
+Ph: +91 9022513006`
             };
         }
 
-        // Send the email
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.error('Error sending email:', error);
-            } else {
-                console.log('Email sent:', info.response);
-            }
-        });
+        // Send the email with async handling
+        const statusEmailResult = await sendEmailAsync(mailOptions);
 
         res.status(200).json({ 
             message: 'Status updated successfully', 
             student: updatedStudent,
-            autoDeclinedCount: status === 'accepted' ? otherPendingRequests?.length || 0 : 0
+            autoDeclinedCount: status === 'accepted' ? otherPendingRequests?.length || 0 : 0,
+            emailSent: statusEmailResult.success
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
