@@ -69,6 +69,25 @@ app.get('/maininfos', async (req, res) => {
     }
 });
 
+// NEW ENDPOINT: Get pending requests sorted by request time (FIFO)
+app.get('/pending-requests/:slotno/:date', async (req, res) => {
+    try {
+        const { slotno, date } = req.params;
+        
+        // Find all pending requests for the specific slot and date, sorted by creation time
+        const pendingRequests = await student.find({
+            slot: slotno,
+            date: date,
+            status: 'pending'
+        }).sort({ createdAt: 1 }); // Sort by creation time (earliest first)
+
+        res.status(200).json(pendingRequests);
+    } catch (error) {
+        console.error('Error fetching pending requests:', error);
+        res.status(500).send('Server error');
+    }
+});
+
 app.get('/api/slots', async (req, res) => {
     try {
         // Fetch all student records from the database
@@ -151,16 +170,7 @@ app.get('/api/slots', async (req, res) => {
     }
 });
 
-
-
-
-
-
-
-
-
-// Create new student record
-// Create new student record
+// Create new student record with timestamp
 app.post('/', async (req, res) => {
     try {
         const {
@@ -200,7 +210,7 @@ app.post('/', async (req, res) => {
 
         const slotTime = slotTimeMap[slot] || 'Unknown time range';
 
-        // Create new student record
+        // Create new student record with automatic timestamp
         const newStudent = await student.create({
             name,
             rollno,
@@ -210,14 +220,16 @@ app.post('/', async (req, res) => {
             no_of_players,
             status,
             date,  // Add the date field to the new student record
+            requestTime: new Date() // Add explicit request timestamp
         });
 
-        // Create new mainInfo record
-        // Create new mainInfo record
+        // Create new mainInfo record with the same timestamp
         const MainInfo = await mainInfo.create({
             rollno: newStudent.rollno,
             slotno: newStudent.slot,
             status: newStudent.status,
+            date: date,
+            requestTime: newStudent.createdAt // Use the same timestamp
         });
 
         // Send a notification email to the student
@@ -230,7 +242,9 @@ This email acknowledges your request to book the Gymkhana Football Turf. Please 
 Name: ${name}\n
 Requested Time: ${slotTime}\n
 Requested Date: ${date}\n
+Request submitted at: ${newStudent.createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n
 Please note that this is just an acknowledgment of your booking request. You will receive a final email confirming your booking if it is approved by the Institute Football Secretary.\n
+Requests are processed on a first-come-first-served basis based on submission time.\n
 We kindly request you to await the confirmation email before making any plans regarding the turf usage.\n
 If you have any questions or need further assistance, feel free to reach out.\n
 Warm regards,\n
@@ -250,13 +264,13 @@ Ph: +91 8849468317\n`
         res.status(200).json({
             student: newStudent,
             mainInfo: MainInfo,
+            message: `Request submitted successfully. You are in queue position based on ${newStudent.createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`
         });
 
     } catch (e) {
         res.status(500).json({ message: e.message });
     }
 });
-
 
 // Delete student request by ID
 app.delete('/:id', async (req, res) => {
@@ -268,14 +282,16 @@ app.delete('/:id', async (req, res) => {
             return res.status(404).json({ message: "Request not found" });
         }
 
+        // Also delete corresponding mainInfo entry
+        await mainInfo.findOneAndDelete({ rollno: info.rollno, slotno: info.slot });
+
         res.status(200).json({ message: "User deleted successfully" });
     } catch (e) {
         res.status(500).json({ message: e.message });
     }
 });
 
-// Update status of a student based on request
-// Update status of a student and send confirmation email if accepted
+// Updated endpoint to handle FIFO approval
 app.put('/student/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body; // Expect 'accepted' or 'declined'
@@ -289,6 +305,80 @@ app.put('/student/:id/status', async (req, res) => {
 
         if (!updatedStudent) {
             return res.status(404).json({ message: 'Student not found' });
+        }
+
+        // Update corresponding mainInfo record
+        await mainInfo.findOneAndUpdate(
+            { rollno: updatedStudent.rollno, slotno: updatedStudent.slot },
+            { status: status }
+        );
+
+        // If accepting a request, check if this is the earliest pending request for this slot/date
+        if (status === 'accepted') {
+            const earliestPendingRequest = await student.findOne({
+                slot: updatedStudent.slot,
+                date: updatedStudent.date,
+                status: 'pending'
+            }).sort({ createdAt: 1 }); // Get the earliest pending request
+
+            if (earliestPendingRequest && earliestPendingRequest._id.toString() !== id) {
+                // Log a warning if accepting a request that's not the earliest
+                console.warn(`Warning: Accepting request ${id} but earlier pending request ${earliestPendingRequest._id} exists for slot ${updatedStudent.slot} on ${updatedStudent.date}`);
+            }
+
+            // Auto-decline all other pending requests for the same slot and date
+            const otherPendingRequests = await student.find({
+                slot: updatedStudent.slot,
+                date: updatedStudent.date,
+                status: 'pending',
+                _id: { $ne: id } // Exclude the current request being accepted
+            });
+
+            // Update all other pending requests to 'declined'
+            await student.updateMany(
+                {
+                    slot: updatedStudent.slot,
+                    date: updatedStudent.date,
+                    status: 'pending',
+                    _id: { $ne: id }
+                },
+                { status: 'declined' }
+            );
+
+            // Update corresponding mainInfo records
+            await mainInfo.updateMany(
+                {
+                    slotno: updatedStudent.slot,
+                    status: 'pending'
+                },
+                { status: 'declined' }
+            );
+
+            // Send decline emails to other pending requests
+            for (const otherRequest of otherPendingRequests) {
+                const declineMailOptions = {
+                    from: 'techheadisc@gmail.com',
+                    to: otherRequest.email,
+                    subject: 'Booking Declined - Slot Already Booked',
+                    text: `Greetings,\n\nWe regret to inform you that your booking request for the Gymkhana Football Turf has been declined as the slot has been allocated to an earlier request.\n\n
+Slot: ${updatedStudent.slot}\n
+Date: ${updatedStudent.date}\n\n
+We process requests on a first-come-first-served basis. Please try booking another available slot.\n\n
+If you have any questions or need further clarification, feel free to reach out.\n\n
+Warm regards,\n
+Yash Shah\n
+Institute Sports Football Secretary, 2025-26\n
+Ph: +91 9022513006\n`
+                };
+
+                transporter.sendMail(declineMailOptions, (error, info) => {
+                    if (error) {
+                        console.error('Error sending decline email:', error);
+                    } else {
+                        console.log('Decline email sent to:', otherRequest.email);
+                    }
+                });
+            }
         }
 
         const slotTimeMap = {
@@ -310,7 +400,6 @@ app.put('/student/:id/status', async (req, res) => {
 
         const updatedslotTime = slotTimeMap[updatedStudent.slot] || 'Unknown time range';
 
-
         // Prepare mail options based on the status
         let mailOptions = {};
         if (status === 'accepted') {
@@ -321,12 +410,13 @@ app.put('/student/:id/status', async (req, res) => {
                 text: `Greetings,\n\nThis email is to confirm your booking of the Gymkhana Football Turf. Please find the booking details below:\n\n
 Name: ${updatedStudent.name}\n
 Time: ${updatedslotTime}\n
-Date: ${updatedStudent.date}\n\n
+Date: ${updatedStudent.date}\n
+Original Request Time: ${updatedStudent.createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\n
 We kindly request you to make the most of this facility while adhering to the rules and regulations that help us maintain it for everyone's enjoyment.\n\n
 If you have any questions or need further assistance, feel free to reach out.\n\n
 Warm regards,\n
 Yash Shah\n
-Institute Sports Football Secretary , 2025-26\n
+Institute Sports Football Secretary, 2025-26\n
 Ph: +91 9022513006\n`
             };
         } else if (status === 'declined') {
@@ -338,7 +428,7 @@ Ph: +91 9022513006\n`
 If you have any questions or need further clarification, feel free to reach out.\n\n
 Warm regards,\n
 Yash Shah\n
-Institute Sports Football Secretary , 2025-26\n
+Institute Sports Football Secretary, 2025-26\n
 Ph: +91 9022513006\n`
             };
         }
@@ -352,12 +442,15 @@ Ph: +91 9022513006\n`
             }
         });
 
-        res.status(200).json({ message: 'Status updated successfully', student: updatedStudent });
+        res.status(200).json({ 
+            message: 'Status updated successfully', 
+            student: updatedStudent,
+            autoDeclinedCount: status === 'accepted' ? otherPendingRequests?.length || 0 : 0
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });
-
 
 // Ban a user
 app.post('/banUser', async (req, res) => {
@@ -370,24 +463,16 @@ app.post('/banUser', async (req, res) => {
     }
 });
 
-// Main info by slot number
-app.get('/maininfo/:slotno', async (req, res) => {
-    const { slotno } = req.params;
+// Updated main info endpoint to work with the FIFO system
+app.get('/maininfo/:slotno/:date', async (req, res) => {
+    const { slotno, date } = req.params;
 
     try {
-        // Get tomorrow's date and set the time to 00:00:00 for accurate comparison
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(0, 0, 0, 0);
-
-        const dayAfterTomorrow = new Date(tomorrow);
-        dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
-
-        // Find an entry in mainInfo where the rollno, slotno, status is 'accepted' and createdAt is tomorrow
+        // Find an entry in mainInfo where the slotno, status is 'accepted' and date matches
         const mainInfoInstance = await mainInfo.findOne({
             slotno: slotno, 
             status: 'accepted',
-            createdAt: { $gte: tomorrow, $lt: dayAfterTomorrow }  // Ensure the date is within tomorrow's range
+            date: date
         });
 
         if (!mainInfoInstance) {
@@ -404,5 +489,50 @@ app.get('/maininfo/:slotno', async (req, res) => {
     } catch (e) {
         // Handle any error that occurs during the process
         res.status(500).json({ message: e.message });
+    }
+});
+
+// NEW ENDPOINT: Get queue position for a specific request
+app.get('/queue-position/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Find the specific student request
+        const studentRequest = await student.findById(id);
+        
+        if (!studentRequest) {
+            return res.status(404).json({ message: 'Request not found' });
+        }
+
+        if (studentRequest.status !== 'pending') {
+            return res.status(200).json({ 
+                message: `Request is ${studentRequest.status}`,
+                position: null,
+                status: studentRequest.status
+            });
+        }
+
+        // Find all pending requests for the same slot and date that were created before this one
+        const earlierRequests = await student.countDocuments({
+            slot: studentRequest.slot,
+            date: studentRequest.date,
+            status: 'pending',
+            createdAt: { $lt: studentRequest.createdAt }
+        });
+
+        const queuePosition = earlierRequests + 1; // +1 because position starts from 1, not 0
+
+        res.status(200).json({
+            message: 'Queue position calculated',
+            position: queuePosition,
+            status: studentRequest.status,
+            requestTime: studentRequest.createdAt,
+            slot: studentRequest.slot,
+            date: studentRequest.date
+        });
+
+    } catch (error) {
+        console.error('Error calculating queue position:', error);
+        res.status(500).send('Server error');
     }
 });

@@ -1,9 +1,5 @@
 const mongoose = require("mongoose");
 
-// const purposeEnum = [
-//     'match among friends', 'council match', 'frisbee club'
-// ];
-
 const statusEnum = [
     'pending', 'accepted', 'declined'
 ];
@@ -37,12 +33,6 @@ const StudentSchema = mongoose.Schema(
                 'Please enter a valid email address'
             ]
         },
-        // purpose: {
-        //     type: String,
-        //     enum: purposeEnum,
-        //     trim: true,
-        //     required: [true, "Enter your purpose of booking"]
-        // },
         player_roll_no: {
             type: String,
             required: [true, 'Player roll numbers are required'],
@@ -67,10 +57,20 @@ const StudentSchema = mongoose.Schema(
             enum: statusEnum,
             default: 'pending',  // By default set to 'pending'
             required: true
+        },
+        requestTime: {
+            type: Date,
+            default: Date.now  // This will store the exact time when request was made
         }
     },
     { timestamps: true }  // Automatically adds createdAt and updatedAt timestamps
 );
+
+// Index for efficient querying by slot, date, and status
+StudentSchema.index({ slot: 1, date: 1, status: 1, createdAt: 1 });
+
+// Index for queue position queries
+StudentSchema.index({ slot: 1, date: 1, createdAt: 1 });
 
 const Student = mongoose.model("Student", StudentSchema);
 module.exports = Student;
