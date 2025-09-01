@@ -13,7 +13,7 @@ const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
-        pass: process.env.EMAIL_PASS || 'swxpknthesgekkgo'
+        pass: process.env.EMAIL_PASS || 'zlsttvscsjwlflqs'
     }
 });
 
@@ -234,7 +234,7 @@ app.post('/', async (req, res) => {
 
         // Send a notification email to the student
         const mailOptions = {
-            from: 'techheadisc@gmail.com',  // Replace with your email
+            from: 'aryansh.techhead@gmail.com',  // Replace with your email
             to: email,                     // Student's email
             subject: 'Turf Booking Request Received',
             text: `Greetings,\n
@@ -357,7 +357,7 @@ app.put('/student/:id/status', async (req, res) => {
             // Send decline emails to other pending requests
             for (const otherRequest of otherPendingRequests) {
                 const declineMailOptions = {
-                    from: 'techheadisc@gmail.com',
+                    from: 'aryansh.techhead@gmail.com',
                     to: otherRequest.email,
                     subject: 'Booking Declined - Slot Already Booked',
                     text: `Greetings,\n\nWe regret to inform you that your booking request for the Gymkhana Football Turf has been declined as the slot has been allocated to an earlier request.\n\n
@@ -404,7 +404,7 @@ Ph: +91 9022513006\n`
         let mailOptions = {};
         if (status === 'accepted') {
             mailOptions = {
-                from: 'techheadisc@gmail.com',  // Replace with your email
+                from: 'aryansh.techhead@gmail.com',  // Replace with your email
                 to: updatedStudent.email,      // Student's email
                 subject: 'Turf Booking Confirmation',
                 text: `Greetings,\n\nThis email is to confirm your booking of the Gymkhana Football Turf. Please find the booking details below:\n\n
@@ -421,7 +421,7 @@ Ph: +91 9022513006\n`
             };
         } else if (status === 'declined') {
             mailOptions = {
-                from: 'techheadisc@gmail.com',  // Replace with your email
+                from: 'aryansh.techhead@gmail.com',  // Replace with your email
                 to: updatedStudent.email,      // Student's email
                 subject: 'Booking Declined',
                 text: `Greetings,\n\nWe regret to inform you that your booking request for the Gymkhana Football Turf has been declined. We apologize for any inconvenience this may cause.\n\n
