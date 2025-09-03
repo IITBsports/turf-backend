@@ -12,6 +12,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.879.0",
+    "@aws-sdk/client-ses": "^3.879.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "mongodb": "^6.9.0",
@@ -20,7 +22,7 @@
     "otp-generator": "^4.0.1"
   },
   "devDependencies": {
-    "dotenv": "^16.4.5",
+    "dotenv": "^16.6.1",
     "nodemon": "^3.1.7"
   },
   "engines": {
