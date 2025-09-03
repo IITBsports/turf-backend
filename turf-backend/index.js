@@ -1,5 +1,4 @@
 const express = require('express');
-require('dotenv').config();
 const app = express();
 const mongoose = require('mongoose');
 const student = require('./model/student.js');
@@ -7,125 +6,76 @@ const bannedDb = require('./model/banned.js');
 const mainInfo = require('./model/main.js');
 const cors = require('cors');
 const otpRoutes = require('./otpRoutes.js'); 
-const AWS = require('aws-sdk');
+const nodemailer = require('nodemailer');
 
-// Configure AWS SES
-AWS.config.update({
-    region: process.env.AWS_REGION || 'us-east-1',
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+// Enhanced transporter configuration with timeout fixes
+const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,        // false for 587, true for 465
+    requireTLS: true,     // Force TLS
+    auth: {
+        user: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
+        pass: process.env.EMAIL_PASS || 'zlsttvscsjwlflqs'
+    },
+    connectionTimeout: 60000,  // 60 seconds
+    greetingTimeout: 30000,    // 30 seconds  
+    socketTimeout: 75000,      // 75 seconds
+    debug: true,              // Enable debug output
+    logger: true             // Log information to console
 });
 
-const ses = new AWS.SES({ apiVersion: '2010-12-01' });
-
-// Enhanced email sending function with AWS SES
-const sendEmailAsync = async (mailOptions) => {
-    try {
-        const params = {
-            Source: process.env.SES_FROM_EMAIL || mailOptions.from,
-            Destination: {
-                ToAddresses: [mailOptions.to]
-            },
-            Message: {
-                Subject: {
-                    Data: mailOptions.subject,
-                    Charset: 'UTF-8'
-                },
-                Body: {
-                    Text: {
-                        Data: mailOptions.text,
-                        Charset: 'UTF-8'
-                    }
-                }
-            }
-        };
-
-        const result = await ses.sendEmail(params).promise();
-        console.log('Email sent successfully via AWS SES:', {
-            messageId: result.MessageId,
-            to: mailOptions.to,
-            subject: mailOptions.subject
-        });
-        
-        return { success: true, messageId: result.MessageId };
-    } catch (error) {
-        console.error('AWS SES email error:', {
-            error: error.message,
-            code: error.code,
-            statusCode: error.statusCode,
-            to: mailOptions.to,
-            subject: mailOptions.subject
-        });
-        return { success: false, error };
+// Verify transporter on startup
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('SMTP connection failed:', error);
+    } else {
+        console.log('SMTP server is ready to take messages');
     }
-};
+});
 
-// Email sending with retry logic
-const sendEmailWithRetry = async (mailOptions, maxRetries = 3) => {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            const result = await sendEmailAsync(mailOptions);
-            if (result.success) {
-                return result;
+// Enhanced email sending function with better error handling
+const sendEmailAsync = (mailOptions) => {
+    return new Promise((resolve, reject) => {
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.error('Email error details:', {
+                    error: error.message,
+                    code: error.code,
+                    command: error.command,
+                    response: error.response,
+                    responseCode: error.responseCode
+                });
+                resolve({ success: false, error }); // Don't reject to prevent app crashes
+            } else {
+                console.log('Email sent successfully:', {
+                    messageId: info.messageId,
+                    accepted: info.accepted,
+                    rejected: info.rejected,
+                    response: info.response
+                });
+                resolve({ success: true, info });
             }
-            
-            if (attempt < maxRetries) {
-                const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
-                console.log(`Email attempt ${attempt} failed, retrying in ${delay}ms...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-        } catch (error) {
-            console.error(`Email attempt ${attempt} error:`, error);
-            if (attempt === maxRetries) {
-                return { success: false, error };
-            }
-        }
-    }
-    return { success: false, error: 'Max retries exceeded' };
-};
-
-// Verify SES configuration on startup
-const verifySESConfiguration = async () => {
-    try {
-        const result = await ses.getSendQuota().promise();
-        console.log('AWS SES is configured correctly:', {
-            maxSendRate: result.MaxSendRate,
-            max24HourSend: result.Max24HourSend,
-            sentLast24Hours: result.SentLast24Hours
         });
-        
-        // Test if the from email is verified
-        const verifiedEmails = await ses.listVerifiedEmailAddresses().promise();
-        const fromEmail = process.env.SES_FROM_EMAIL;
-        if (fromEmail && !verifiedEmails.VerifiedEmailAddresses.includes(fromEmail)) {
-            console.warn(`Warning: Email ${fromEmail} is not verified in AWS SES`);
-        }
-    } catch (error) {
-        console.error('AWS SES configuration error:', error.message);
-        console.error('Please check your AWS credentials and SES setup');
-    }
+    });
 };
 
 // Use environment variable for MongoDB connection
 const mongoUri = process.env.MONGODB_URI || "mongodb+srv://aryanshtechhead:XdtUr6uOOCtwkgxE@turf-booking.ydar6gc.mongodb.net/?retryWrites=true&w=majority&appName=Turf-Booking";
 
 mongoose.connect(mongoUri)
-    .then(async () => {
-        console.log("Connected to database");
-        
-        // Verify SES configuration
-        await verifySESConfiguration();
-        
+    .then(() => {
+        console.log("connected to database");
         // Use PORT environment variable for Back4App compatibility
         const port = process.env.PORT || 3010;
         // IMPORTANT: Bind to 0.0.0.0 for container environments
         app.listen(port, '0.0.0.0', () => {
-            console.log(`Server has started on port ${port}`);
+            console.log(`server has started on port ${port}`);
             console.log(`Health check available at http://localhost:${port}/health`);
         });
     })
     .catch((err) => {
-        console.log("Connection to database failed", err);
+        console.log("connection to database failed", err);
         process.exit(1); // Exit with error code if DB connection fails
     });
 
@@ -137,16 +87,16 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Test email endpoint for debugging AWS SES
+// Test email endpoint for debugging
 app.get('/test-email', async (req, res) => {
     const testMailOptions = {
-        from: process.env.SES_FROM_EMAIL,
+        from: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
         to: 'test@example.com', // Replace with your test email
-        subject: 'Test Email Configuration - AWS SES',
-        text: 'This is a test email to verify AWS SES configuration.'
+        subject: 'Test Email Configuration',
+        text: 'This is a test email to verify SMTP configuration.'
     };
 
-    const result = await sendEmailWithRetry(testMailOptions);
+    const result = await sendEmailAsync(testMailOptions);
     res.json(result);
 });
 
@@ -340,7 +290,7 @@ app.post('/', async (req, res) => {
 
         // Send a notification email to the student
         const mailOptions = {
-            from: process.env.SES_FROM_EMAIL,
+            from: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
             to: email,                     // Student's email
             subject: 'Turf Booking Request Received',
             text: `Greetings,
@@ -366,8 +316,8 @@ Institute Sports Football Secretary, 2025-26
 Ph: +91 8849468317`
         };
 
-        // Use async email sending with error handling and retry
-        const emailResult = await sendEmailWithRetry(mailOptions);
+        // Use async email sending with error handling
+        const emailResult = await sendEmailAsync(mailOptions);
         if (!emailResult.success) {
             console.error('Failed to send acknowledgment email, but booking was successful');
         }
@@ -469,7 +419,7 @@ app.put('/student/:id/status', async (req, res) => {
             // Send decline emails to other pending requests with async handling
             for (const otherRequest of otherPendingRequests) {
                 const declineMailOptions = {
-                    from: process.env.SES_FROM_EMAIL,
+                    from: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
                     to: otherRequest.email,
                     subject: 'Booking Declined - Slot Already Booked',
                     text: `Greetings,
@@ -489,7 +439,7 @@ Institute Sports Football Secretary, 2025-26
 Ph: +91 9022513006`
                 };
 
-                const declineEmailResult = await sendEmailWithRetry(declineMailOptions);
+                const declineEmailResult = await sendEmailAsync(declineMailOptions);
                 if (!declineEmailResult.success) {
                     console.error(`Failed to send decline email to: ${otherRequest.email}`);
                 }
@@ -519,7 +469,7 @@ Ph: +91 9022513006`
         let mailOptions = {};
         if (status === 'accepted') {
             mailOptions = {
-                from: process.env.SES_FROM_EMAIL,
+                from: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
                 to: updatedStudent.email,      // Student's email
                 subject: 'Turf Booking Confirmation',
                 text: `Greetings,
@@ -542,7 +492,7 @@ Ph: +91 9022513006`
             };
         } else if (status === 'declined') {
             mailOptions = {
-                from: process.env.SES_FROM_EMAIL,
+                from: process.env.EMAIL_USER || 'aryansh.techhead@gmail.com',
                 to: updatedStudent.email,      // Student's email
                 subject: 'Booking Declined',
                 text: `Greetings,
@@ -558,8 +508,8 @@ Ph: +91 9022513006`
             };
         }
 
-        // Send the email with async handling and retry
-        const statusEmailResult = await sendEmailWithRetry(mailOptions);
+        // Send the email with async handling
+        const statusEmailResult = await sendEmailAsync(mailOptions);
 
         res.status(200).json({ 
             message: 'Status updated successfully', 
