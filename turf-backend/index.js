@@ -8,108 +8,303 @@ const cors = require('cors');
 const otpRoutes = require('./otpRoutes.js'); 
 const nodemailer = require('nodemailer');
 
-// IITB SMTP Configuration (similar to your Python mailToId function)
-const transporter = nodemailer.createTransport({
-    host: "smtp-auth.iitb.ac.in",
-    port: 587,
-    secure: false,        // false for 587
-    requireTLS: true,     // Force TLS (similar to starttls() in Python)
-    auth: {
-        user: '23b3934@iitb.ac.in',  // Your IITB email
-        pass: '0820501803972bd2b1dcb9ee225c70f1'  // Your access token from the image
-    },
-    connectionTimeout: 100000,  // 100 seconds (matching Python timeout)
-    greetingTimeout: 30000,     // 30 seconds  
-    socketTimeout: 100000,      // 100 seconds
-    debug: true,               // Enable debug output
-    logger: true              // Log information to console
-});
-
-// Verify transporter on startup
-transporter.verify((error, success) => {
-    if (error) {
-        console.error('IITB SMTP connection failed:', error);
-    } else {
-        console.log('IITB SMTP server is ready to take messages');
-    }
-});
-
-// Enhanced email sending function (JavaScript version of your Python mailToId function)
-const mailToId = (receiverEmailId, message, subject = "Turf Booking System") => {
-    return new Promise((resolve, reject) => {
-        const senderEmailId = "noreply.23b3934@iitb.ac.in";  // Similar to Python format
+// Enhanced IITB SMTP Configuration with better timeout and connection handling
+const createIITBTransporter = () => {
+    return nodemailer.createTransport({
+        host: "smtp-auth.iitb.ac.in",
+        port: 587,
+        secure: false,
+        requireTLS: true,
+        auth: {
+            user: '23b3934@iitb.ac.in',
+            pass: '0820501803972bd2b1dcb9ee225c70f1'
+        },
+        // Optimized timeouts for institutional SMTP
+        connectionTimeout: 45000,  // 45 seconds
+        greetingTimeout: 20000,    // 20 seconds  
+        socketTimeout: 45000,      // 45 seconds
         
-        const mailOptions = {
-            from: senderEmailId,
-            to: receiverEmailId,
-            subject: subject,
-            text: message
-        };
-
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.error('Email error details:', {
-                    error: error.message,
-                    code: error.code,
-                    command: error.command,
-                    response: error.response,
-                    responseCode: error.responseCode
-                });
-                console.log("Something went wrong....", error);
-                resolve({ success: false, error }); // Don't reject to prevent app crashes
-            } else {
-                // Log success message (similar to Python version)
-                const messageList = message.split(' ').slice(0, 6);
-                const messageFinal = messageList.join(' ');
-                console.log(`Message '${messageFinal}...' sent successfully to ${receiverEmailId}`);
-                
-                console.log('Email sent successfully:', {
-                    messageId: info.messageId,
-                    accepted: info.accepted,
-                    rejected: info.rejected,
-                    response: info.response
-                });
-                resolve({ success: true, info });
-            }
-        });
+        // Connection pooling for better performance
+        pool: true,
+        maxConnections: 3,         // Conservative connection limit
+        maxMessages: 50,           // Messages per connection
+        
+        // Rate limiting to avoid overwhelming the server
+        rateDelta: 1000,          // 1 second window
+        rateLimit: 2,             // Max 2 emails per second
+        
+        // Disable debugging in production
+        debug: false,
+        logger: false,
+        
+        // Additional stability options
+        ignoreTLS: false,
+        requireTLS: true,
+        tls: {
+            rejectUnauthorized: false // Help with certificate issues
+        }
     });
 };
+
+let transporter = createIITBTransporter();
+
+// Verify transporter on startup with better error handling
+const verifyTransporter = async () => {
+    try {
+        await transporter.verify();
+        console.log('IITB SMTP server is ready to take messages');
+        return true;
+    } catch (error) {
+        console.error('IITB SMTP connection failed:', error.message);
+        // Recreate transporter on verification failure
+        transporter = createIITBTransporter();
+        return false;
+    }
+};
+
+// Enhanced email sending function with improved retry logic
+const mailToId = async (receiverEmailId, message, subject = "Turf Booking System") => {
+    const senderEmailId = "noreply.23b3934@iitb.ac.in";
+    
+    const mailOptions = {
+        from: senderEmailId,
+        to: receiverEmailId,
+        subject: subject,
+        text: message
+    };
+
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 seconds between retries
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log(`Attempting to send email to ${receiverEmailId} (attempt ${attempt}/${maxRetries})`);
+            
+            // Create a promise with timeout
+            const emailPromise = new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error(`Email timeout after 30 seconds (attempt ${attempt})`));
+                }, 30000); // 30 second timeout per attempt
+
+                transporter.sendMail(mailOptions, (error, info) => {
+                    clearTimeout(timeout);
+                    if (error) {
+                        reject(error);
+                    } else {
+                        resolve(info);
+                    }
+                });
+            });
+
+            const info = await emailPromise;
+            
+            // Log success
+            const messagePreview = message.split(' ').slice(0, 6).join(' ');
+            console.log(`Message '${messagePreview}...' sent successfully to ${receiverEmailId} on attempt ${attempt}`);
+            console.log('Email sent successfully:', {
+                messageId: info.messageId,
+                accepted: info.accepted,
+                rejected: info.rejected
+            });
+            
+            return { success: true, info, attempt };
+            
+        } catch (error) {
+            console.error(`Email attempt ${attempt} failed:`, {
+                error: error.message,
+                code: error.code,
+                command: error.command,
+                receiverEmailId
+            });
+            
+            // If this isn't the last attempt, wait before retrying
+            if (attempt < maxRetries) {
+                console.log(`Waiting ${retryDelay}ms before retry...`);
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                
+                // Recreate transporter on connection errors
+                if (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET') {
+                    console.log('Recreating transporter due to connection error...');
+                    transporter = createIITBTransporter();
+                }
+            } else {
+                // Final attempt failed
+                console.error(`Failed to send email to ${receiverEmailId} after ${maxRetries} attempts`);
+                return { 
+                    success: false, 
+                    error: error.message,
+                    finalAttempt: attempt
+                };
+            }
+        }
+    }
+    
+    return { success: false, error: 'Max retries exceeded' };
+};
+
+// Queue-based email system for better reliability
+class EmailQueue {
+    constructor() {
+        this.queue = [];
+        this.processing = false;
+        this.successCount = 0;
+        this.failureCount = 0;
+        this.lastError = null;
+    }
+
+    async addToQueue(receiverEmailId, message, subject) {
+        this.queue.push({ 
+            receiverEmailId, 
+            message, 
+            subject, 
+            timestamp: new Date(),
+            id: Date.now() + Math.random() 
+        });
+        
+        console.log(`Email added to queue for ${receiverEmailId}. Queue length: ${this.queue.length}`);
+        
+        if (!this.processing) {
+            this.processQueue();
+        }
+    }
+
+    async processQueue() {
+        if (this.queue.length === 0) {
+            this.processing = false;
+            console.log('Email queue processing completed');
+            return;
+        }
+
+        this.processing = true;
+        const emailData = this.queue.shift();
+        
+        try {
+            const result = await mailToId(emailData.receiverEmailId, emailData.message, emailData.subject);
+            
+            if (result.success) {
+                this.successCount++;
+                console.log(`Email sent successfully from queue to ${emailData.receiverEmailId}`);
+            } else {
+                this.failureCount++;
+                this.lastError = result.error;
+                console.error(`Failed to send queued email to ${emailData.receiverEmailId}:`, result.error);
+            }
+            
+        } catch (error) {
+            this.failureCount++;
+            this.lastError = error.message;
+            console.error(`Queue processing error for ${emailData.receiverEmailId}:`, error.message);
+        }
+
+        // Process next email in queue after a delay
+        setTimeout(() => this.processQueue(), 1500); // 1.5 second delay between emails
+    }
+
+    getStats() {
+        return {
+            queueLength: this.queue.length,
+            processing: this.processing,
+            successCount: this.successCount,
+            failureCount: this.failureCount,
+            lastError: this.lastError
+        };
+    }
+
+    clearQueue() {
+        this.queue = [];
+        console.log('Email queue cleared');
+    }
+}
+
+const emailQueue = new EmailQueue();
 
 // Use environment variable for MongoDB connection
 const mongoUri = process.env.MONGODB_URI || "mongodb+srv://aryanshtechhead:XdtUr6uOOCtwkgxE@turf-booking.ydar6gc.mongodb.net/?retryWrites=true&w=majority&appName=Turf-Booking";
 
 mongoose.connect(mongoUri)
-    .then(() => {
-        console.log("connected to database");
-        // Use PORT environment variable for Back4App compatibility
+    .then(async () => {
+        console.log("Connected to database");
+        
+        // Verify email transporter
+        await verifyTransporter();
+        
         const port = process.env.PORT || 3010;
-        // IMPORTANT: Bind to 0.0.0.0 for container environments
         app.listen(port, '0.0.0.0', () => {
-            console.log(`server has started on port ${port}`);
+            console.log(`Server has started on port ${port}`);
             console.log(`Health check available at http://localhost:${port}/health`);
         });
     })
     .catch((err) => {
-        console.log("connection to database failed", err);
-        process.exit(1); // Exit with error code if DB connection fails
+        console.log("Connection to database failed", err);
+        process.exit(1);
     });
 
 app.use(cors());
 app.use(express.json());
 
-// Health check endpoint for container monitoring
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+// Health check endpoint with email system status
+app.get('/health', async (req, res) => {
+    const emailStats = emailQueue.getStats();
+    let emailHealth = 'unknown';
+    
+    try {
+        await transporter.verify();
+        emailHealth = 'ok';
+    } catch (error) {
+        emailHealth = 'failed';
+    }
+    
+    res.status(200).json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        emailHealth,
+        emailStats
+    });
 });
 
-// Test email endpoint for debugging
-app.get('/test-email', async (req, res) => {
-    const testMessage = 'This is a test email to verify IITB SMTP configuration.';
-    const result = await mailToId('test@example.com', testMessage, 'Test Email Configuration');
-    res.json(result);
+// Enhanced test email endpoint
+app.get('/test-email/:email?', async (req, res) => {
+    const testEmail = req.params.email || 'test@example.com';
+    const testMessage = 'This is a test email to verify IITB SMTP configuration. If you receive this, the email system is working correctly.';
+    
+    try {
+        const result = await mailToId(testEmail, testMessage, 'Test Email Configuration');
+        res.json({
+            success: result.success,
+            message: result.success ? 'Test email sent successfully' : 'Failed to send test email',
+            attempt: result.attempt || result.finalAttempt,
+            error: result.error || null
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error sending test email',
+            error: error.message
+        });
+    }
 });
 
-// Your existing routes remain the same...
+// Email queue management endpoints
+app.get('/email-queue-status', (req, res) => {
+    res.json(emailQueue.getStats());
+});
+
+app.post('/retry-email-queue', (req, res) => {
+    if (!emailQueue.processing && emailQueue.queue.length > 0) {
+        emailQueue.processQueue();
+        res.json({ message: 'Email queue processing restarted', queueLength: emailQueue.queue.length });
+    } else if (emailQueue.processing) {
+        res.json({ message: 'Email queue is already processing', queueLength: emailQueue.queue.length });
+    } else {
+        res.json({ message: 'Email queue is empty', queueLength: 0 });
+    }
+});
+
+app.delete('/clear-email-queue', (req, res) => {
+    emailQueue.clearQueue();
+    res.json({ message: 'Email queue cleared successfully' });
+});
+
 app.use('/api/otp', otpRoutes);
 
 // Get all students
@@ -134,17 +329,16 @@ app.get('/maininfos', async (req, res) => {
     }
 });
 
-// NEW ENDPOINT: Get pending requests sorted by request time (FIFO)
+// Get pending requests sorted by request time (FIFO)
 app.get('/pending-requests/:slotno/:date', async (req, res) => {
     try {
         const { slotno, date } = req.params;
         
-        // Find all pending requests for the specific slot and date, sorted by creation time
         const pendingRequests = await student.find({
             slot: slotno,
             date: date,
             status: 'pending'
-        }).sort({ createdAt: 1 }); // Sort by creation time (earliest first)
+        }).sort({ createdAt: 1 });
 
         res.status(200).json(pendingRequests);
     } catch (error) {
@@ -235,7 +429,7 @@ app.get('/api/slots', async (req, res) => {
     }
 });
 
-// Create new student record with timestamp
+// Create new student record with queued email
 app.post('/', async (req, res) => {
     try {
         const {
@@ -247,7 +441,7 @@ app.post('/', async (req, res) => {
             no_of_players,
             status,
             slot,
-            date,  // Accept date from request body
+            date,
         } = req.body;
 
         // Check if user is banned
@@ -284,8 +478,8 @@ app.post('/', async (req, res) => {
             slot,
             no_of_players,
             status,
-            date,  // Add the date field to the new student record
-            requestTime: new Date() // Add explicit request timestamp
+            date,
+            requestTime: new Date()
         });
 
         // Create new mainInfo record with the same timestamp
@@ -294,7 +488,7 @@ app.post('/', async (req, res) => {
             slotno: newStudent.slot,
             status: newStudent.status,
             date: date,
-            requestTime: newStudent.createdAt // Use the same timestamp
+            requestTime: newStudent.createdAt
         });
 
         // Prepare acknowledgment email message
@@ -320,17 +514,14 @@ Yash Shah
 Institute Sports Football Secretary, 2025-26
 Ph: +91 8849468317`;
 
-        // Use the new mailToId function
-        const emailResult = await mailToId(email, message, 'Turf Booking Request Received');
-        if (!emailResult.success) {
-            console.error('Failed to send acknowledgment email, but booking was successful');
-        }
+        // Add email to queue instead of sending immediately
+        emailQueue.addToQueue(email, message, 'Turf Booking Request Received');
 
         res.status(200).json({
             student: newStudent,
             mainInfo: MainInfo,
             message: `Request submitted successfully. You are in queue position based on ${newStudent.createdAt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`,
-            emailSent: emailResult.success
+            emailQueued: true
         });
 
     } catch (e) {
@@ -357,7 +548,7 @@ app.delete('/:id', async (req, res) => {
     }
 });
 
-// Updated endpoint to handle FIFO approval
+// Updated endpoint to handle FIFO approval with queued emails
 app.put('/student/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body; // Expect 'accepted' or 'declined'
@@ -385,10 +576,9 @@ app.put('/student/:id/status', async (req, res) => {
                 slot: updatedStudent.slot,
                 date: updatedStudent.date,
                 status: 'pending'
-            }).sort({ createdAt: 1 }); // Get the earliest pending request
+            }).sort({ createdAt: 1 });
 
             if (earliestPendingRequest && earliestPendingRequest._id.toString() !== id) {
-                // Log a warning if accepting a request that's not the earliest
                 console.warn(`Warning: Accepting request ${id} but earlier pending request ${earliestPendingRequest._id} exists for slot ${updatedStudent.slot} on ${updatedStudent.date}`);
             }
 
@@ -397,7 +587,7 @@ app.put('/student/:id/status', async (req, res) => {
                 slot: updatedStudent.slot,
                 date: updatedStudent.date,
                 status: 'pending',
-                _id: { $ne: id } // Exclude the current request being accepted
+                _id: { $ne: id }
             });
 
             // Update all other pending requests to 'declined'
@@ -420,7 +610,7 @@ app.put('/student/:id/status', async (req, res) => {
                 { status: 'declined' }
             );
 
-            // Send decline emails to other pending requests with async handling
+            // Queue decline emails for other pending requests
             for (const otherRequest of otherPendingRequests) {
                 const declineMessage = `Greetings,
 
@@ -438,10 +628,7 @@ Yash Shah
 Institute Sports Football Secretary, 2025-26
 Ph: +91 9022513006`;
 
-                const declineEmailResult = await mailToId(otherRequest.email, declineMessage, 'Booking Declined - Slot Already Booked');
-                if (!declineEmailResult.success) {
-                    console.error(`Failed to send decline email to: ${otherRequest.email}`);
-                }
+                emailQueue.addToQueue(otherRequest.email, declineMessage, 'Booking Declined - Slot Already Booked');
             }
         }
 
@@ -501,14 +688,14 @@ Institute Sports Football Secretary, 2025-26
 Ph: +91 9022513006`;
         }
 
-        // Send the email with new function
-        const statusEmailResult = await mailToId(updatedStudent.email, message, emailSubject);
+        // Add status update email to queue
+        emailQueue.addToQueue(updatedStudent.email, message, emailSubject);
 
         res.status(200).json({ 
             message: 'Status updated successfully', 
             student: updatedStudent,
             autoDeclinedCount: status === 'accepted' ? otherPendingRequests?.length || 0 : 0,
-            emailSent: statusEmailResult.success
+            emailQueued: true
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -555,7 +742,7 @@ app.get('/maininfo/:slotno/:date', async (req, res) => {
     }
 });
 
-// NEW ENDPOINT: Get queue position for a specific request
+// Get queue position for a specific request
 app.get('/queue-position/:id', async (req, res) => {
     try {
         const { id } = req.params;
