@@ -262,24 +262,70 @@ app.get('/health', async (req, res) => {
     });
 });
 
-// Enhanced test email endpoint
+// Add deployment environment detection and network diagnostics
+app.get('/debug-network', async (req, res) => {
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.PORT;
+    const diagnostics = {
+        environment: isProduction ? 'production' : 'development',
+        port: process.env.PORT || 3010,
+        nodeEnv: process.env.NODE_ENV,
+        timestamp: new Date().toISOString()
+    };
+
+    // Test SMTP connectivity
+    try {
+        await transporter.verify();
+        diagnostics.smtpStatus = 'connected';
+    } catch (error) {
+        diagnostics.smtpStatus = 'failed';
+        diagnostics.smtpError = error.message;
+    }
+
+    // Network information
+    const os = require('os');
+    const networkInterfaces = os.networkInterfaces();
+    diagnostics.networkInfo = {
+        hostname: os.hostname(),
+        platform: os.platform(),
+        interfaces: Object.keys(networkInterfaces)
+    };
+
+    res.json(diagnostics);
+});
+
+// Enhanced test email with deployment-specific handling
 app.get('/test-email/:email?', async (req, res) => {
     const testEmail = req.params.email || 'test@example.com';
-    const testMessage = 'This is a test email to verify IITB SMTP configuration. If you receive this, the email system is working correctly.';
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.PORT;
+    
+    const testMessage = `This is a test email to verify IITB SMTP configuration.
+    
+Environment: ${isProduction ? 'Production' : 'Development'}
+Server Time: ${new Date().toISOString()}
+Port: ${process.env.PORT || 3010}
+
+If you receive this, the email system is working correctly in ${isProduction ? 'production' : 'development'} mode.`;
     
     try {
-        const result = await mailToId(testEmail, testMessage, 'Test Email Configuration');
+        const startTime = Date.now();
+        const result = await mailToId(testEmail, testMessage, `Test Email - ${isProduction ? 'PROD' : 'DEV'}`);
+        const endTime = Date.now();
+        
         res.json({
             success: result.success,
             message: result.success ? 'Test email sent successfully' : 'Failed to send test email',
             attempt: result.attempt || result.finalAttempt,
-            error: result.error || null
+            error: result.error || null,
+            environment: isProduction ? 'production' : 'development',
+            duration: `${endTime - startTime}ms`,
+            isProduction: result.isProduction
         });
     } catch (error) {
         res.status(500).json({
             success: false,
             message: 'Error sending test email',
-            error: error.message
+            error: error.message,
+            environment: isProduction ? 'production' : 'development'
         });
     }
 });
