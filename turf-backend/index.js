@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
     requireTLS: true,     // Force TLS (similar to starttls() in Python)
     auth: {
         user: '23b3934@iitb.ac.in',  // Your IITB email
-        pass: '082050180397bd2b1dcb9ee225c70f1'  // Your access token from the image
+        pass: '0820501803972bd2b1dcb9ee225c70f1'  // Your access token from the image
     },
     connectionTimeout: 100000,  // 100 seconds (matching Python timeout)
     greetingTimeout: 30000,     // 30 seconds  
