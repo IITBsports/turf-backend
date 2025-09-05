@@ -8,10 +8,8 @@ const cors = require('cors');
 const otpRoutes = require('./otpRoutes.js'); 
 const nodemailer = require('nodemailer');
 
-// Enhanced IITB SMTP Configuration optimized for Railway deployment
+// FIXED: Enhanced IITB SMTP Configuration - removed problematic logger options
 const createIITBTransporter = () => {
-    const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.PORT;
-    
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST || "smtp-auth.iitb.ac.in",
         port: parseInt(process.env.SMTP_PORT) || 587,
@@ -21,41 +19,35 @@ const createIITBTransporter = () => {
             user: process.env.SMTP_USER || '23b3934@iitb.ac.in',
             pass: process.env.SMTP_PASS || '0820501803972bd2b1dcb9ee225c70f1'
         },
-        // Railway-optimized timeouts
-        connectionTimeout: isRailway ? 60000 : 45000,
-        greetingTimeout: isRailway ? 30000 : 20000,
-        socketTimeout: isRailway ? 60000 : 45000,
+        // Optimized timeouts for cloud deployment
+        connectionTimeout: 60000,
+        greetingTimeout: 30000,
+        socketTimeout: 60000,
         
-        // Conservative connection pooling for Railway
+        // Conservative connection pooling for cloud
         pool: true,
-        maxConnections: isRailway ? 1 : 3,
-        maxMessages: isRailway ? 10 : 50,
+        maxConnections: 1,
+        maxMessages: 10,
         
         // Rate limiting
         rateDelta: 2000,
         rateLimit: 1,
         
-        // Railway-specific TLS settings
+        // TLS settings for institutional SMTP
         ignoreTLS: false,
         requireTLS: true,
         tls: {
             rejectUnauthorized: false,
-            ciphers: 'SSLv3',
             servername: 'smtp-auth.iitb.ac.in'
-        },
-        
-        // Additional Railway compatibility options
-        logger: isRailway,
-        debug: isRailway
+        }
+        // REMOVED: logger and debug options that were causing the error
     });
 };
 
 let transporter = createIITBTransporter();
 
-// Verify transporter on startup with enhanced error handling
+// Verify transporter on startup
 const verifyTransporter = async () => {
-    const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.PORT;
-    
     try {
         console.log('Verifying SMTP connection...');
         await Promise.race([
@@ -65,25 +57,19 @@ const verifyTransporter = async () => {
             )
         ]);
         
-        console.log('IITB SMTP server is ready to take messages');
+        console.log('✓ IITB SMTP server is ready');
         return true;
     } catch (error) {
-        console.error('IITB SMTP connection failed:', error.message);
-        
-        if (isRailway) {
-            console.log('Railway environment detected, attempting SMTP recreation...');
-        }
-        
+        console.error('✗ SMTP connection failed:', error.message);
         // Recreate transporter on verification failure
         transporter = createIITBTransporter();
         return false;
     }
 };
 
-// Enhanced email sending function with Railway-specific optimizations
+// Enhanced email sending function
 const mailToId = async (receiverEmailId, message, subject = "Turf Booking System") => {
     const senderEmailId = process.env.SENDER_EMAIL || "noreply.23b3934@iitb.ac.in";
-    const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.PORT;
     
     const mailOptions = {
         from: senderEmailId,
@@ -92,19 +78,18 @@ const mailToId = async (receiverEmailId, message, subject = "Turf Booking System
         text: message
     };
 
-    const maxRetries = isRailway ? 5 : 3;
-    const baseRetryDelay = isRailway ? 3000 : 2000;
+    const maxRetries = 3;
+    const baseRetryDelay = 3000;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            console.log(`[${isRailway ? 'RAILWAY' : 'LOCAL'}] Sending email to ${receiverEmailId} (attempt ${attempt}/${maxRetries})`);
+            console.log(`Sending email to ${receiverEmailId} (attempt ${attempt}/${maxRetries})`);
             
-            // Create a promise with adaptive timeout
+            // Create a promise with timeout
             const emailPromise = new Promise((resolve, reject) => {
-                const timeoutDuration = isRailway ? 45000 : 30000;
                 const timeout = setTimeout(() => {
-                    reject(new Error(`Email timeout after ${timeoutDuration/1000} seconds (attempt ${attempt})`));
-                }, timeoutDuration);
+                    reject(new Error(`Email timeout after 45 seconds (attempt ${attempt})`));
+                }, 45000);
 
                 transporter.sendMail(mailOptions, (error, info) => {
                     clearTimeout(timeout);
@@ -118,7 +103,6 @@ const mailToId = async (receiverEmailId, message, subject = "Turf Booking System
 
             const info = await emailPromise;
             
-            // Log success
             const messagePreview = message.split(' ').slice(0, 6).join(' ');
             console.log(`✓ Email sent successfully to ${receiverEmailId} on attempt ${attempt}`);
             console.log('Email details:', {
@@ -128,52 +112,40 @@ const mailToId = async (receiverEmailId, message, subject = "Turf Booking System
                 preview: `${messagePreview}...`
             });
             
-            return { success: true, info, attempt, isRailway };
+            return { success: true, info, attempt };
             
         } catch (error) {
             console.error(`✗ Email attempt ${attempt} failed:`, {
                 error: error.message,
                 code: error.code,
-                command: error.command,
-                receiverEmailId,
-                isRailway
+                receiverEmailId
             });
             
-            // Progressive retry delay
             if (attempt < maxRetries) {
                 const retryDelay = baseRetryDelay * attempt;
                 console.log(`Waiting ${retryDelay}ms before retry...`);
                 await new Promise(resolve => setTimeout(resolve, retryDelay));
                 
-                // Recreate transporter on specific connection errors
+                // Recreate transporter on connection errors
                 if (['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND'].includes(error.code)) {
                     console.log('Recreating transporter due to connection error...');
                     transporter = createIITBTransporter();
-                    
-                    // Re-verify after recreation
-                    try {
-                        await transporter.verify();
-                        console.log('Transporter recreated and verified successfully');
-                    } catch (verifyError) {
-                        console.error('Transporter verification failed after recreation:', verifyError.message);
-                    }
                 }
             } else {
                 console.error(`Failed to send email to ${receiverEmailId} after ${maxRetries} attempts`);
                 return { 
                     success: false, 
                     error: error.message,
-                    finalAttempt: attempt,
-                    isRailway
+                    finalAttempt: attempt
                 };
             }
         }
     }
     
-    return { success: false, error: 'Max retries exceeded', isRailway };
+    return { success: false, error: 'Max retries exceeded' };
 };
 
-// Enhanced queue-based email system with Railway optimizations
+// Email Queue class
 class EmailQueue {
     constructor() {
         this.queue = [];
@@ -181,7 +153,6 @@ class EmailQueue {
         this.successCount = 0;
         this.failureCount = 0;
         this.lastError = null;
-        this.isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.PORT;
     }
 
     async addToQueue(receiverEmailId, message, subject) {
@@ -228,9 +199,8 @@ class EmailQueue {
             console.error(`✗ Queue processing error for ${emailData.receiverEmailId}:`, error.message);
         }
 
-        // Railway-optimized processing delay
-        const processDelay = this.isRailway ? 3000 : 1500;
-        setTimeout(() => this.processQueue(), processDelay);
+        // Process next email after delay
+        setTimeout(() => this.processQueue(), 3000);
     }
 
     getStats() {
@@ -240,7 +210,7 @@ class EmailQueue {
             successCount: this.successCount,
             failureCount: this.failureCount,
             lastError: this.lastError,
-            environment: this.isRailway ? 'railway' : 'local'
+            environment: process.env.NODE_ENV || 'development'
         };
     }
 
@@ -252,7 +222,7 @@ class EmailQueue {
 
 const emailQueue = new EmailQueue();
 
-// Enhanced MongoDB connection with FIXED options (removed bufferMaxEntries)
+// MongoDB connection
 const mongoUri = process.env.MONGODB_URI || "mongodb+srv://aryanshtechhead:XdtUr6uOOCtwkgxE@turf-booking.ydar6gc.mongodb.net/turf-booking?retryWrites=true&w=majority";
 
 const connectToDatabase = async () => {
@@ -265,7 +235,6 @@ const connectToDatabase = async () => {
             maxPoolSize: 10,
             minPoolSize: 1,
             maxIdleTimeMS: 30000
-            // Removed bufferMaxEntries: 0 - this option is not supported
         });
         
         console.log("✓ Connected to MongoDB database");
@@ -280,29 +249,62 @@ const connectToDatabase = async () => {
     }
 };
 
-// Server startup
+// FIXED: Server startup for Back4App (must listen on port 3010)
 const startServer = async () => {
     try {
         await connectToDatabase();
         
-        const port = process.env.PORT || 3010;
-        const host = process.env.RAILWAY_ENVIRONMENT ? '0.0.0.0' : 'localhost';
+        // CRITICAL: Back4App expects port 3010
+        const port = 3010;
         
-        app.listen(port, host, () => {
-            console.log(`✓ Server started on ${host}:${port}`);
-            console.log(`Environment: ${process.env.RAILWAY_ENVIRONMENT ? 'Railway Production' : 'Local Development'}`);
-            console.log(`Health check: http://${host === '0.0.0.0' ? 'your-app' : 'localhost'}:${port}/health`);
+        // CRITICAL: Must bind to 0.0.0.0 for container networking
+        const server = app.listen(port, '0.0.0.0', () => {
+            console.log(`✓ Server started on 0.0.0.0:${port}`);
+            console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
+            console.log(`✓ Health check endpoint: /health`);
         });
+
+        // Handle server errors
+        server.on('error', (err) => {
+            console.error('✗ Server error:', err);
+            process.exit(1);
+        });
+
+        // Graceful shutdown
+        process.on('SIGTERM', () => {
+            console.log('SIGTERM received, shutting down gracefully');
+            server.close(() => {
+                mongoose.connection.close();
+                process.exit(0);
+            });
+        });
+
+        return server;
     } catch (error) {
         console.error('✗ Server startup failed:', error);
         process.exit(1);
     }
 };
 
-app.use(cors());
-app.use(express.json());
+// Middleware
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Enhanced health check endpoint
+// CRITICAL: Root endpoint for Back4App health check
+app.get('/', (req, res) => {
+    res.status(200).json({
+        status: 'OK',
+        message: 'Turf Booking System API is running',
+        timestamp: new Date().toISOString(),
+        port: 3010
+    });
+});
+
+// CRITICAL: Health check endpoint
 app.get('/health', async (req, res) => {
     const emailStats = emailQueue.getStats();
     let emailHealth = 'unknown';
@@ -325,7 +327,7 @@ app.get('/health', async (req, res) => {
     res.status(200).json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
-        environment: process.env.RAILWAY_ENVIRONMENT ? 'railway' : 'local',
+        environment: process.env.NODE_ENV || 'development',
         emailHealth,
         dbHealth,
         emailStats,
@@ -335,12 +337,10 @@ app.get('/health', async (req, res) => {
 
 // Network diagnostics endpoint
 app.get('/debug-network', async (req, res) => {
-    const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.PORT;
     const diagnostics = {
-        environment: isRailway ? 'railway' : 'local',
-        port: process.env.PORT || 3010,
+        environment: process.env.NODE_ENV || 'development',
+        port: 3010,
         nodeEnv: process.env.NODE_ENV,
-        railwayEnv: process.env.RAILWAY_ENVIRONMENT,
         timestamp: new Date().toISOString(),
         nodeVersion: process.version
     };
@@ -374,13 +374,12 @@ app.get('/debug-network', async (req, res) => {
 // Enhanced test email endpoint
 app.get('/test-email/:email?', async (req, res) => {
     const testEmail = req.params.email || 'test@example.com';
-    const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.PORT;
     
     const testMessage = `IITB SMTP Test Email - ${new Date().toISOString()}
 
-Environment: ${isRailway ? 'Railway Production' : 'Local Development'}
+Environment: ${process.env.NODE_ENV || 'development'}
 Server Time: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-Port: ${process.env.PORT || 3010}
+Port: 3010
 Node Version: ${process.version}
 
 This email confirms that the IITB SMTP configuration is working correctly.
@@ -388,12 +387,11 @@ This email confirms that the IITB SMTP configuration is working correctly.
 Technical Details:
 - SMTP Host: smtp-auth.iitb.ac.in:587
 - TLS: Enabled
-- Authentication: Successful
-- Transport: ${isRailway ? 'Railway Optimized' : 'Standard'}`;
+- Authentication: Successful`;
     
     try {
         const startTime = Date.now();
-        const result = await mailToId(testEmail, testMessage, `IITB SMTP Test - ${isRailway ? 'Railway' : 'Local'}`);
+        const result = await mailToId(testEmail, testMessage, 'IITB SMTP Test - Back4App');
         const endTime = Date.now();
         
         res.json({
@@ -401,7 +399,7 @@ Technical Details:
             message: result.success ? 'Test email sent successfully via IITB SMTP' : 'Failed to send test email',
             attempt: result.attempt || result.finalAttempt,
             error: result.error || null,
-            environment: isRailway ? 'railway' : 'local',
+            environment: process.env.NODE_ENV || 'development',
             duration: `${endTime - startTime}ms`,
             smtpHost: 'smtp-auth.iitb.ac.in'
         });
@@ -410,7 +408,7 @@ Technical Details:
             success: false,
             message: 'Error sending test email',
             error: error.message,
-            environment: isRailway ? 'railway' : 'local'
+            environment: process.env.NODE_ENV || 'development'
         });
     }
 });
@@ -919,4 +917,8 @@ app.get('/queue-position/:id', async (req, res) => {
 });
 
 // Start the server
-startServer();
+console.log('Starting Turf Booking System...');
+startServer().catch(err => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+});
