@@ -12,7 +12,7 @@ const nodemailer = require('nodemailer');
 const createIITBTransporter = () => {
     const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.PORT;
     
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
         host: process.env.SMTP_HOST || "smtp-auth.iitb.ac.in",
         port: parseInt(process.env.SMTP_PORT) || 587,
         secure: false,
@@ -252,7 +252,7 @@ class EmailQueue {
 
 const emailQueue = new EmailQueue();
 
-// Enhanced MongoDB connection with Railway optimizations
+// Enhanced MongoDB connection with FIXED options (removed bufferMaxEntries)
 const mongoUri = process.env.MONGODB_URI || "mongodb+srv://aryanshtechhead:XdtUr6uOOCtwkgxE@turf-booking.ydar6gc.mongodb.net/turf-booking?retryWrites=true&w=majority";
 
 const connectToDatabase = async () => {
@@ -264,8 +264,8 @@ const connectToDatabase = async () => {
             socketTimeoutMS: 45000,
             maxPoolSize: 10,
             minPoolSize: 1,
-            maxIdleTimeMS: 30000,
-            bufferMaxEntries: 0
+            maxIdleTimeMS: 30000
+            // Removed bufferMaxEntries: 0 - this option is not supported
         });
         
         console.log("✓ Connected to MongoDB database");
@@ -369,7 +369,7 @@ app.get('/debug-network', async (req, res) => {
     };
 
     res.json(diagnostics);
-};
+});
 
 // Enhanced test email endpoint
 app.get('/test-email/:email?', async (req, res) => {
