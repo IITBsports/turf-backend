@@ -17,7 +17,7 @@ const createIITBTransporter = () => {
         requireTLS: true,
         auth: {
             user: process.env.SMTP_USER || '23b3934@iitb.ac.in',
-            pass: process.env.SMTP_PASS || '0820501803972bd2b1dcb9ee225c70f1'
+            pass: process.env.SMTP_PASS || 'ef9075573a01258fc4cfd9c193b009c6'
         },
         // Optimized timeouts for cloud deployment
         connectionTimeout: 60000,
