@@ -286,11 +286,38 @@ const startServer = async () => {
     }
 };
 
-// Middleware
+// CORS Configuration - UPDATED
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://gymkhana.iitb.ac.in',
+    'https://gymkhana.iitb.ac.in/sports',
+    'https://gymkhana.iitb.ac.in/sports/'
+];
+
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || '*',
-    credentials: true
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // Check if the origin is in the allowed list
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            // For development/testing, log unauthorized origins
+            console.log('Blocked origin:', origin);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Handle preflight requests
+app.options('*', cors());
+
+// Other Middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
